@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#ffffff">
+  <title>听见 · AI 口述影像</title>
+  <meta name="description" content="从认识角色到试听、调整和完整观看，让每个故事都能被听见。包含一部 3 分 20 秒的中文模拟短片。">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='18' fill='%23141414'/%3E%3Cpath d='M17 35V29a15 15 0 0130 0v6M17 33v12h7V33zM40 33v12h7V33zM35 22v18l-6 4V26z' fill='none' stroke='white' stroke-width='3' stroke-linejoin='round'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <a class="skip-link" href="#main">跳到主要内容</a>
+  <header class="site-header">
+    <button class="brand" data-action="home" aria-label="听见 AI 口述影像，返回首页"><span class="brand-mark" aria-hidden="true"><svg viewBox="0 0 32 32"><path d="M5 18v-3a11 11 0 0122 0v3M5 17v9h5v-9zm17 0v9h5v-9zM18 8v15l-5 3V11"/></svg></span><span>听见<span class="brand-sub">AI 口述影像</span></span></button>
+    <nav class="main-nav" aria-label="主要导航"><button data-action="home" class="active">首页</button><button data-action="library">我的视频</button></nav>
+    <div class="header-actions"><button class="text-btn guide-toggle" data-action="settings" aria-label="语音引导与快捷键设置"><span data-icon="volume"></span><span>语音引导</span><span class="small-pill" id="guide-status">未开启</span></button><span class="header-divider"></span><button class="text-btn" data-action="help" aria-label="操作帮助"><span data-icon="help"></span><span class="help-label">操作帮助</span></button></div>
+  </header>
+  <div class="demo-notice"><span data-icon="info"></span><span>演示模式：AI 分析、生成与识别结果为预设演示</span><span class="notice-right">真实播放 · 中文旁白</span></div>
+  <main id="main" tabindex="-1"></main>
+  <footer class="site-footer"><span>听见画面里的每一个故事。</span><div><button class="text-btn" data-action="repeat-guide"><span data-icon="volume"></span>重听提示</button><button class="text-btn" data-action="stop-guide">停止提示</button><span class="footer-key"><kbd>Tab</kbd> 切换操作 <kbd>空格</kbd> 主要操作</span></div></footer>
+  <div id="status" role="status" aria-live="polite" class="sr-only"></div><div id="toast" class="toast" hidden></div>
+  <dialog id="modal" aria-labelledby="modal-title"></dialog>
+  <dialog id="chat" class="chat-drawer" aria-labelledby="chat-title"></dialog>
+  <input type="file" id="file-input" accept="video/*" hidden>
+  <audio id="narration" preload="none"></audio><audio id="guide-audio" preload="none"></audio>
+  <script type="module" src="app.js"></script>
+</body>
+</html>
