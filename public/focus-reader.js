@@ -1,4 +1,11 @@
 const CONTROLS='button,a[href],input:not([type="hidden"]),select,textarea,summary,[role="button"],[role="switch"],[role="slider"]';
+export function preloadFocusPrompts({warm,enabled,voice}){
+ let timer;
+ const refresh=()=>{if(enabled())warm([...document.querySelectorAll(CONTROLS)].filter(e=>e.getClientRects().length&&!e.disabled).map(focusLabel).filter(Boolean),voice());};
+ const observer=new MutationObserver(()=>{clearTimeout(timer);timer=setTimeout(refresh,30);});
+ observer.observe(document.body,{childList:true,subtree:true,characterData:true,attributes:true,attributeFilter:['aria-label','data-focus-label','aria-checked']});
+ refresh();window.addEventListener('pagehide',()=>{observer.disconnect();clearTimeout(timer);},{once:true});
+}
 export function focusLabel(element){
  const referenced=element.getAttribute('aria-labelledby')?.split(/\s+/).map(id=>element.ownerDocument.getElementById(id)?.textContent||'').join(' ');
  let label=element.getAttribute('data-focus-label')||element.getAttribute('aria-label')||referenced;
@@ -33,7 +40,7 @@ export class FocusReader{
     await this.audio.play();if(token!==this.sequence)return;
     this.render(label,'speaking');if(this.status){this.status.dataset.spokenLabel=label;this.status.dataset.provider='volcengine';}
    }catch{if(token===this.sequence)this.render(label,'unavailable');}
-  },70);
+  },0);
  }
  render(label,state){if(!this.status)return;this.status.hidden=false;this.status.dataset.state=state;this.status.textContent=state==='unavailable'?'豆包提示音暂未开始，可在语音设置中重试。':'当前焦点：'+label;}
 }

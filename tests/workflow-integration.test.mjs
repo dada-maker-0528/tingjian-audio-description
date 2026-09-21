@@ -33,8 +33,12 @@ test('real media with mocked model: roles, version gates, rework, full duration,
   globalThis.fetch=mocked;
   try{
     const p=await make('test-flow');await startWorkflow(p);await wait(p);assert.equal(p.workflow.stage,'roles');
+    assert.deepEqual(p.workflow.progress.events.filter(e=>e.type==='done').map(e=>e.stage),[0,1,2]);
+    const analysisProgress=p.workflow.progress.id;
     const act=(action,extra={})=>workflowAction(p,{action,revision:p.workflow.revision,requestId:crypto.randomUUID(),versionId:p.workflow.current?.id,...extra});
     await act('accept');await wait(p);assert.equal(p.workflow.stage,'short');assert.equal(p.workflow.current.result.duration,7);
+    assert.notEqual(p.workflow.progress.id,analysisProgress);
+    assert.deepEqual(p.workflow.progress.events.filter(e=>e.type==='done').map(e=>e.stage),[0,1,2]);
     const firstVersion=p.workflow.current.id;await act('feedback',{text:'旁白慢一点'});await wait(p);
     assert.equal(p.workflow.confirmed,null);assert.equal(p.workflow.current.settings.speed,.8);
     await assert.rejects(()=>act('accept',{versionId:firstVersion}),/当前已生成/);
@@ -53,6 +57,37 @@ test('real media with mocked model: roles, version gates, rework, full duration,
     await act('position',{position:21});await initializeStore();assert.equal(projects.get(p.id).workflow.position,21);
     const json=JSON.stringify(projectView(p));assert.ok(!json.includes(process.env.AIMEDIA_DATA_DIR.replaceAll('\\','\\\\')));assert.ok(!json.includes('evidenceFile'));assert.ok(!json.includes('"file":'));
     assert.ok(requests.some(b=>b.voice_setting?.speed===.8));
+    const delivered=structuredClone(p.workflow.current);
+    const {promptProfile,savePromptProfile}=await import('../backend/prompt-library.mjs');const profile=await promptProfile();
+    await savePromptProfile({revision:profile.revision,entries:{...profile.entries,narration:'REVISION_PROMPT_MARKER：优先描述空间关系。'}});
+    await act('feedback',{text:'重新生成',usePromptLibrary:true});await wait(p);
+    assert.equal(p.workflow.stage,'medium');assert.equal(p.workflow.saved,false);assert.equal(p.workflow.mediumEdited,true);
+    assert.deepEqual(p.workflow.history.find(v=>v.id===delivered.id).result,delivered.result);
+    assert.ok(requests.some(b=>b.messages?.[0]?.content.includes('REVISION_PROMPT_MARKER')));
+    assert.equal(p.workflow.current.promptRevision,profile.revision+1);
+    const {revisionContext}=await import('../backend/revision.mjs');
+    const base=await revisionContext(p),oldResult=structuredClone(p.workflow.current.result);
+    const draft={versionId:base.versionId,baseHash:base.profile.hash,scope:'project',settings:{...base.settings,gain:.65},entries:{...base.profile.entries,narration:'PROJECT_ONLY_MARKER：明确人物位置。'},libraryRevision:base.library.revision};
+    await act('revise',draft);await wait(p);
+    assert.equal((await promptProfile()).entries.narration,base.library.entries.narration);
+    assert.equal(p.workflow.current.execution.attempts.at(-1).status,'done');
+    assert.notEqual(p.workflow.current.execution.promptHash,base.profile.hash);
+    assert.ok(p.workflow.current.execution.parts.every(part=>part.promptHash===p.workflow.current.execution.promptHash));
+    assert.ok(requests.some(b=>b.messages?.[0]?.content.includes('PROJECT_ONLY_MARKER')));
+    assert.deepEqual(p.workflow.history.find(v=>v.id===oldResult.versionId).result,oldResult);
+    const after=await revisionContext(p),snapshot=structuredClone(p.workflow);
+    await assert.rejects(()=>act('revise',draft),e=>e.status===409);assert.deepEqual(p.workflow,snapshot);
+    const newer=await savePromptProfile({revision:after.library.revision,entries:{...after.library.entries,roles:'UNRELATED_NEW_ROLE_TEMPLATE'}});
+    const publish={versionId:after.versionId,baseHash:after.profile.hash,scope:'library',settings:after.settings,entries:{...after.profile.entries,narration:'SHARED_MARKER：强调动作衔接。'},libraryRevision:after.library.revision};
+    await assert.rejects(()=>act('revise',publish),e=>e.status===409);assert.deepEqual(p.workflow,snapshot);
+    await act('revise',{...publish,libraryRevision:newer.revision});await wait(p);
+    assert.equal((await promptProfile()).entries.roles,'UNRELATED_NEW_ROLE_TEMPLATE');
+    assert.equal((await promptProfile()).entries.narration,publish.entries.narration);
+    assert.equal(p.workflow.current.promptProfile.scope,'library-update');
+    assert.ok(requests.some(b=>b.messages?.[0]?.content.includes('SHARED_MARKER')));
+    const {promptHistory}=await import('../backend/prompt-library.mjs');assert.ok((await promptHistory()).some(v=>v.entries.narration===base.library.entries.narration));
+
+
   }finally{globalThis.fetch=original;}
 });
 test('failed speech recognition retains recording for retry without rerecording',async()=>{

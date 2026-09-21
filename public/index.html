@@ -8,12 +8,18 @@
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='18' fill='%23141414'/%3E%3Cpath d='M17 35V29a15 15 0 0130 0v6M17 33v12h7V33zM40 33v12h7V33zM35 22v18l-6 4V26z' fill='none' stroke='white' stroke-width='3' stroke-linejoin='round'/%3E%3C/svg%3E">
   <link rel="stylesheet" href="styles.css">
   <link rel="stylesheet" href="local.css">
+  <link rel="stylesheet" href="task-progress.css">
+  <link rel="stylesheet" href="prompt-library.css">
+  <link rel="stylesheet" href="revision-editor.css">
+  <link rel="stylesheet" href="monochrome.css">
+  <link rel="modulepreload" href="task-code.js">
+  <link rel="modulepreload" href="task-progress.js">
 </head>
 <body>
   <a class="skip-link" href="#main">跳到主要内容</a>
   <header class="site-header">
     <button class="brand" data-action="home" data-focus-label="返回首页" aria-label="听见 AI 口述影像，返回首页"><span class="brand-mark" aria-hidden="true"><svg viewBox="0 0 32 32"><path d="M5 18v-3a11 11 0 0122 0v3M5 17v9h5v-9zm17 0v9h5v-9zM18 8v15l-5 3V11"/></svg></span><span>听见<span class="brand-sub">AI 口述影像</span></span></button>
-    <nav class="main-nav" aria-label="主要导航"><button data-action="home" class="active">首页</button><button data-action="library">我的视频</button></nav>
+    <nav class="main-nav" aria-label="主要导航"><button data-action="home" class="active">首页</button><button data-action="library">我的视频</button><button data-action="prompt-library">提示词库</button></nav>
     <div class="header-actions"><button class="text-btn header-stop" data-action="stop-guide">停止提示</button><button class="text-btn guide-toggle" data-action="settings" data-focus-label="语音设置" aria-label="语音、音色与快捷键设置"><span data-icon="volume"></span><span>语音设置</span><span class="small-pill" id="guide-status">未开启</span></button><span class="header-divider"></span><button class="text-btn" data-action="help" aria-label="操作帮助"><span data-icon="help"></span><span class="help-label">操作帮助</span></button></div>
   </header>
   <div class="demo-notice"><span data-icon="info"></span><span>演示模式：AI 分析、生成与识别结果为预设演示</span><span class="notice-right">真实播放 · 中文旁白</span></div>

@@ -1,3 +1,4 @@
+import {promptHash} from './prompt-library.mjs';
 import { randomUUID, createHash } from 'node:crypto';
 import { scriptHash, scriptReview, requireScriptApproval } from './script-review.mjs';
 import { createReadStream } from 'node:fs';
@@ -118,7 +119,7 @@ async function synthesizeScene(p,s,signal){
   const text=s.text,textRev=s.textRev,cfg=settings(),speed=p.listeningPreferences?.speed||1;
   const dir=path.join(projectDir(p.id),'speech');await mkdir(dir,{recursive:true});
   const hash=createHash('sha256').update(text+'|'+speed+'|'+cfg.ttsMode+'|'+(cfg.ttsMode==='local'?cfg.localVoice:cfg.ttsVoice)).digest('hex').slice(0,16);
-  const output=cfg.ttsMode==='local'?await localSpeech(text,dir,{voice:cfg.localVoice,rate:Math.round((speed-1)*10),signal}):await cloudSpeech(text,path.join(dir,`remote-${hash}-${uid()}.wav`),signal,{speed,voice:p.listeningPreferences?.voice,filmId:p.parentListeningProject||p.id});
+  const output=cfg.ttsMode==='local'?await localSpeech(text,dir,{voice:cfg.localVoice,rate:Math.round((speed-1)*10),signal}):await cloudSpeech(text,path.join(dir,`remote-${hash}-${uid()}.wav`),signal,{speed,voice:p.listeningPreferences?.voice,filmId:p.parentListeningProject||p.id,promptHash:p.promptProfile?promptHash(p.promptProfile.entries):''});
   if(signal.aborted)throw new Error('任务已取消');
   if(s.textRev!==textRev)throw new Error('声音已生成，但稿件已更新。旧声音未覆盖当前稿，请重新配音');
   s.audio={...output,textRev,speed,engine:cfg.ttsMode==='local'?'本机中文配音':'在线配音',voice:cfg.ttsMode==='local'?cfg.localVoice:cfg.ttsVoice};
@@ -134,7 +135,7 @@ export function suggestScene(p,sceneId){
   const textRev=s.textRev,snapshot=structuredClone(s);
   return startJob(p,'suggest',async({signal,stage})=>{
     await stage(1,'正在根据画面证据精简旁白');
-    const value=p.provenance==='sample-annotated'&&s.id==='s2'?{text:'近处的浪峰隆起，水面泛着细碎的光。',reason:'保留浪峰和高光两项事实，去掉静态画面无法证明的运动方向。'}:await shorten(snapshot,signal);
+    const value=p.provenance==='sample-annotated'&&s.id==='s2'?{text:'近处的浪峰隆起，水面泛着细碎的光。',reason:'保留浪峰和高光两项事实，去掉静态画面无法证明的运动方向。'}:await shorten(snapshot,signal,p.promptProfile);
     if(signal.aborted)throw new Error('任务已取消');
     s.suggestion={...value,baseTextRev:textRev,provenance:p.provenance==='sample-annotated'&&s.id==='s2'?'预设示例建议':'AI 生成建议',status:s.textRev===textRev?'pending':'stale'};
     await stage(1,s.textRev===textRev?'建议已就绪，由你决定是否采纳':'原稿已变化，这条建议已标为旧建议');
@@ -164,7 +165,7 @@ export function pipeline(p,input={}){
       if(p.transcript.segments.length){p.quietWindows=p.windows;p.windows=dialogueGaps(p.transcript.segments,p.duration);p.windowSource='dialogue-gaps';await stage(0,`已定位 ${p.transcript.segments.length} 段对白，按对白空隙安排旁白`);}else p.windowSource='quiet-gaps';
       await stage(0,`已提取 ${frames.length} 个画面，原声处理完成`,{status:'done'});
       await stage(1,'联合画面与原声，选择必要信息并编写旁白');
-      const scenes=await analyze(frames,p.transcript,p.windows,p.duration,signal,{personal,preferences:p.listeningPreferences});
+      const scenes=await analyze(frames,p.transcript,p.windows,p.duration,signal,{personal,preferences:p.listeningPreferences,promptProfile:p.promptProfile});
       if(signal.aborted)throw new Error('任务已取消');
       p.scenes=scenes.map(s=>({...s,aiText:s.text}));p.provenance='live-ai';p.aiRun={provider:settings().provider,model:settings().visionModel,frameCount:frames.length,analyzedAt:new Date().toISOString(),hasOriginalAudio:p.hasAudio};p.revision++;await save(p);
     } else if(personal) {
@@ -214,7 +215,7 @@ export function pipeline(p,input={}){
         if(window&&(s.insertStart!==window.start||s.insertEnd!==window.end)){s.insertStart=window.start;s.insertEnd=window.end;changed(p,s,false);await save(p);}
         if(window&&s.text.length>Math.max(3,Math.floor((window.end-window.start)*3.4*(p.listeningPreferences?.speed||1))-1)&&s.audio?.textRev!==s.textRev){
           await stage(2,`正在按 ${Math.floor((window.end-window.start)*3.4*(p.listeningPreferences?.speed||1))-1} 字容量编排「${s.title}」`);
-          const suggestion=await shorten({...structuredClone(s),speechSpeed:p.listeningPreferences?.speed||1},signal);if(signal.aborted)throw new Error('任务已取消');
+          const suggestion=await shorten({...structuredClone(s),speechSpeed:p.listeningPreferences?.speed||1},signal,p.promptProfile);if(signal.aborted)throw new Error('任务已取消');
           s.fitHistory??=[];s.fitHistory.push({before:s.text,window:window.end-window.start,after:suggestion.text,reason:suggestion.reason,phase:'before-speech'});
           s.text=suggestion.text;s.aiText=s.text;changed(p,s,true);await save(p);
         }
@@ -223,7 +224,7 @@ export function pipeline(p,input={}){
       if(personal)await fitSpeechEdges(p,s,signal);
       for(let retry=0;retry<2&&personal&&p.provenance==='live-ai'&&!s.manualEdited&&s.audio.duration>s.insertEnd-s.insertStart+.015;retry++){
         await stage(2,`「${s.title}」声音超出窗口，正在进行第 ${retry+1}/2 次精简`);
-        const expected=s.textRev;const suggestion=await shorten({...structuredClone(s),speechSpeed:p.listeningPreferences?.speed||1},signal);
+        const expected=s.textRev;const suggestion=await shorten({...structuredClone(s),speechSpeed:p.listeningPreferences?.speed||1},signal,p.promptProfile);
         if(signal.aborted)throw new Error('任务已取消');
         if(s.textRev!==expected||s.manualEdited)throw new Error('稿件已由人工更新，自动精简结果已停止回填');
         s.fitHistory??=[];s.fitHistory.push({before:s.text,actualDuration:s.audio.duration,window:s.insertEnd-s.insertStart,after:suggestion.text,reason:suggestion.reason});

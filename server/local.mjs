@@ -5,7 +5,9 @@ import {createReadStream} from 'node:fs';
 import {mkdir,open,stat,unlink} from 'node:fs/promises';
 import {randomUUID} from 'node:crypto';
 import {initializeStore,projects,projectDir,getProject,dataRoot} from '../backend/store.mjs';
-import {initializeAI,settings} from '../backend/ai.mjs';
+import {initializeAI,settings,assistPrompt,proposeRevision} from '../backend/ai.mjs';
+import {promptProfile,savePromptProfile,promptHistory,validatePromptEntries} from '../backend/prompt-library.mjs';
+import {revisionContext,validateRevision} from '../backend/revision.mjs';
 import {registerUpload} from '../backend/service.mjs';
 import {startWorkflow,projectView,workflowAction,transcribeRecording,stopWorkflows} from '../backend/workflow.mjs';
 import {handleTTS} from './worker.mjs';
@@ -38,14 +40,18 @@ async function sendFile(req,res,file){
 function contained(base,relative){const file=path.resolve(base,relative);if(!file.startsWith(base+path.sep))throw Object.assign(new Error('路径不可访问'),{status:403});return file;}
 export function createLocalServer(){
   const uploads=new Set();
+  const publicOrigin=process.env.TINGJIAN_PUBLIC_ORIGIN?new URL(process.env.TINGJIAN_PUBLIC_ORIGIN):null;
+  if(publicOrigin&&(publicOrigin.protocol!=='https:'||publicOrigin.username||publicOrigin.password||publicOrigin.pathname!=='/'))throw new Error('线上入口必须配置为完整HTTPS域名');
   const uiSpeech=new UISpeechCache(path.join(dataRoot,'ui-speech'));
   return http.createServer(async(req,res)=>{
     try{
       const port=req.socket.localPort;
-      if(![`127.0.0.1:${port}`,`localhost:${port}`].includes(req.headers.host)){json(res,{error:'仅支持本机访问'},403);return;}
-      const origin=`http://${req.headers.host}`,url=new URL(req.url,origin);
+      const external=publicOrigin&&req.headers.host===publicOrigin.host;
+      if(!external&&![`127.0.0.1:${port}`,`localhost:${port}`].includes(req.headers.host)){json(res,{error:'访问地址不受支持'},403);return;}
+      const origin=external?publicOrigin.origin:`http://${req.headers.host}`,url=new URL(req.url,origin);
       if(req.headers.origin&&req.headers.origin!==origin||req.headers['sec-fetch-site']==='cross-site'){json(res,{error:'不支持跨网站访问本地服务'},403);return;}
       if(!['GET','HEAD'].includes(req.method)&&req.headers['x-tingjian-request']!=='1'){json(res,{error:'缺少本地请求标识'},403);return;}
+      if(url.pathname==='/healthz'&&['GET','HEAD'].includes(req.method)){json(res,{ready:true,app:'tingjian',release:process.env.TINGJIAN_RELEASE||'local'});return;}
       if(url.pathname==='/api/capabilities'){json(res,{local:true,visionReady:settings().visionReady,ttsReady:Boolean(process.env.VOLC_TTS_KEY),ttsProvider:process.env.TINGJIAN_TTS_PROVIDER||'doubao',maxUploadMB:500,maxDuration:3600});return;}
       if(url.pathname==='/api/tts/status'){
         res.writeHead(200,{'Content-Type':'application/json','Cache-Control':'no-store'});res.end(JSON.stringify({configured:Boolean(process.env.VOLC_TTS_KEY),provider:'volcengine',label:'豆包语音',filmId:defaultFilm.id,voices:VOICES}));return;
@@ -67,6 +73,17 @@ export function createLocalServer(){
         const response=await handleTTS(new Request(url,{method:'POST',headers:req.headers,body:bytes,signal:controller.signal}),process.env,openNodeSpeech);
         res.writeHead(response.status,Object.fromEntries(response.headers));res.end(Buffer.from(await response.arrayBuffer()));return;
       }
+      if(url.pathname==='/api/prompt-library/history'&&req.method==='GET'){
+        const versions=await promptHistory(),usage=[];
+        for(const p of projects.values())if(p.workflow&&!p.archived)for(const v of [...p.workflow.history,p.workflow.current].filter(Boolean))if(v.execution)usage.push({projectId:p.id,title:p.title,versionId:v.id,settingsVersion:v.settingsVersion,stage:v.stage,promptRevision:v.promptRevision,promptHash:v.execution.promptHash,scope:v.promptProfile?.scope||'library',status:v.execution.attempts.at(-1)?.status});
+        json(res,{versions,usage});return;
+      }
+      if(url.pathname==='/api/prompt-library'&&req.method==='GET'){json(res,{...await promptProfile(),aiAvailable:settings().visionReady});return;}
+      if(url.pathname==='/api/prompt-library'&&req.method==='PUT'){json(res,await savePromptProfile(await readJSON(req)));return;}
+      if(url.pathname==='/api/prompt-library/assist'&&req.method==='POST'){
+        const controller=new AbortController();res.on('close',()=>controller.abort());
+        const result=await assistPrompt(await readJSON(req),controller.signal);if(!res.destroyed)json(res,result);return;
+      }
       if(url.pathname==='/api/bootstrap'&&req.method==='GET'){json(res,{projects:[...projects.values()].filter(p=>p.workflow&&!p.archived).sort((a,b)=>b.updatedAt.localeCompare(a.updatedAt)).map(projectView)});return;}
       if(url.pathname==='/api/upload'&&req.method==='POST'){
         const requestId=req.headers['x-request-id'];if(typeof requestId!=='string'||requestId.length>100)throw new Error('缺少上传请求标识');
@@ -84,9 +101,20 @@ export function createLocalServer(){
         }catch(error){await handle.close().catch(()=>{});if(!projects.has(id))await unlink(file).catch(()=>{});throw error;}finally{uploads.delete(requestId);}
         return;
       }
-      const match=/^\/api\/projects\/([a-zA-Z0-9-]+)(?:\/(listen-action|listen-voice))?$/.exec(url.pathname);
+      const match=/^\/api\/projects\/([a-zA-Z0-9-]+)(?:\/(listen-action|listen-voice|revision-context|revision-preview))?$/.exec(url.pathname);
       if(match){
         const p=getProject(match[1]);if(!p.workflow||p.archived)throw Object.assign(new Error('作品不存在'),{status:404});
+        if(match[2]==='revision-context'&&req.method==='GET'){json(res,await revisionContext(p));return;}
+        if(match[2]==='revision-preview'&&req.method==='POST'){
+          const input=await readJSON(req),draft=await validateRevision(p,{...input,scope:'project'}),version=p.workflow.current.id;
+          const controller=new AbortController();res.on('close',()=>controller.abort());
+          const proposal=await proposeRevision({...draft,instruction:input.instruction},controller.signal);
+          if(version!==p.workflow.current.id)throw Object.assign(new Error('项目已更新，请重新打开修订'),{status:409});
+          if(proposal.clarification){json(res,{clarification:proposal.clarification});return;}
+          const entries=validatePromptEntries({...draft.entries,narration:proposal.narration,shorten:proposal.shorten});
+          await validateRevision(p,{...input,scope:'project',entries,settings:proposal.settings});
+          if(!res.destroyed)json(res,{entries,settings:proposal.settings,summary:proposal.summary});return;
+        }
         if(!match[2]&&req.method==='GET'){json(res,projectView(p));return;}
         if(req.method==='POST'&&match[2]==='listen-action'){json(res,await workflowAction(p,await readJSON(req)));return;}
         if(req.method==='POST'&&match[2]==='listen-voice'){json(res,await transcribeRecording(p,await readBody(req,8*1024*1024),url.searchParams.get('recordingId')));return;}

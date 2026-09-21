@@ -79,3 +79,12 @@ test('shortener repairs using measured character count, and accepts validated te
   });
   await mocked([envelope({text:'短句'},'unknown_action'),envelope({text:'短句'},'unknown_action')],async()=>await assert.rejects(shorten(scene),/未按要求/));
 });
+test('tight speech window may drop terminal punctuation but never truncate spoken facts',async()=>{
+ const scene={text:'手中的工具碰到手机电池。',evidence:'手机电池可见',facts:['手机电池可见'],insertStart:0,insertEnd:2};
+ await mocked([envelope({text:'拆机露电池。',reason:'省略工具细节'},'submit_narration_edit')],async requests=>{
+  const result=await shorten(scene);assert.equal(result.text,'拆机露电池');assert.equal(requests.length,1);assert.match(requests[0].messages[0].content,/不加句末标点/);
+ });
+ await mocked([envelope({text:'手持工具拆手机。',reason:'过长'},'submit_narration_edit'),envelope({text:'手持工具拆手机。',reason:'仍过长'},'submit_narration_edit')],async()=>{
+  await assert.rejects(shorten(scene),/有效的精简/);
+ });
+});

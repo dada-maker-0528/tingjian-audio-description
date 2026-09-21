@@ -13,3 +13,6 @@ dist/
 
 .aimedia/
 .test-artifacts/
+
+__pycache__/
+*.pyc

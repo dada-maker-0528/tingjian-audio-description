@@ -30,7 +30,7 @@ export function canComplete(task){
   return task.stage==='full' && task.confirmed?.version===task.version && (task.mediumEdited ? task.verifiedVersion===task.version && task.mediumConfirmedVersion!==null : task.mediumConfirmedVersion===task.version);
 }
 export function applyFeedback(task,text){
-  if(!['short','medium','verify'].includes(task.stage))return {ok:false,message:'当前演示支持在试听阶段调整旁白。人物称呼已按短片中的对白预设。'};
+  if(!['short','medium','verify'].includes(task.stage)&&!(task.completed&&task.stage==='complete'))return {ok:false,message:'当前演示支持在试听阶段调整旁白。人物称呼已按短片中的对白预设。'};
   if(/只改|只修改|这句话|那句话|这一句|那一句|改名|称呼/.test(text))return {ok:false,message:'这条意见已记录。当前 Demo 暂未准备单句或角色称呼修改的音频版本，原设置保持不变。可以试听现有版本，或调整整段旁白的语速、音量和描述量。'};
   const s={...task.candidate};const changes=[];
   if(/慢|太快/.test(text)){s.speed='slow';changes.push('旁白语速稍慢');}
@@ -42,7 +42,13 @@ export function applyFeedback(task,text){
     if(/声音.*小|声音.*大/.test(text))return {ok:false,clarify:true,message:'你想调整旁白音量吗？可以选择“旁白大声一点”。'};
     return {ok:false,message:'这条意见已记录，当前 Demo 暂未准备对应修改结果。可以试试“旁白慢一点”“旁白大声一点”或“描述少一点”。'};
   }
+  return applyRevision(task,s,changes);
+}
+export function applyRevision(task,s,changes=['应用本次修订设置']){
+  if(!['short','medium','verify'].includes(task.stage)&&!(task.completed&&task.stage==='complete'))return {ok:false,message:'请在样片或成片完成后修订。'};
+  if(!s||!['normal','slow'].includes(s.speed)||![.88,1].includes(s.gain)||!['balanced','concise'].includes(s.density)||!isVoice(s.voice))return {ok:false,message:'演示素材未准备该参数组合，请使用已有选项。'};
   if(JSON.stringify(s)===JSON.stringify(task.candidate))return {ok:false,message:'当前样片已经使用这组设置，可以直接试听。'};
+  if(task.completed){task.previousDeliveries??=[];task.previousDeliveries.push({id:task.id,settings:{...task.confirmed},version:task.version,saved:task.saved});task.id='film-'+Date.now();task.completed=false;task.saved=false;task.stage='medium';}
   task.candidate=s;task.version++;task.verifiedVersion=null;
   if(task.stage==='medium'){task.mediumEdited=true;task.mediumConfirmedVersion=null;}
   task.updated=Date.now();

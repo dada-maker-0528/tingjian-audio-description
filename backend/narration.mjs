@@ -7,12 +7,14 @@ import {DEFAULT_VOICE} from '../public/voices.js';
 import {probe,run,ffmpeg} from './media.mjs';
 import {dataRoot} from './store.mjs';
 
-export async function synthesizeDoubao(text,file,signal,{speed=1,voice=DEFAULT_VOICE,filmId=''}={}) {
+export const speechCacheKey=(text,{speed=1,voice=DEFAULT_VOICE,filmId='',promptHash=''}={})=>createHash('sha256').update(JSON.stringify([filmId,text,voice,speed,promptHash,process.env.VOLC_TTS_RESOURCE_ID||'seed-tts-2.0'])).digest('hex');
+export async function synthesizeDoubao(text,file,signal,{speed=1,voice=DEFAULT_VOICE,filmId='',promptHash=''}={}) {
   if(![1,.8].includes(speed))throw new Error('当前支持自然和稍慢两种旁白语速');
-  const key=createHash('sha256').update(JSON.stringify([filmId,text,voice,speed,process.env.VOLC_TTS_RESOURCE_ID||'seed-tts-2.0'])).digest('hex');
+  const key=speechCacheKey(text,{speed,voice,filmId,promptHash});
   const cache=path.join(dataRoot,'speech-cache');await mkdir(cache,{recursive:true});
-  const cached=path.join(cache,key+'.wav');let bytes;
+  const cached=path.join(cache,key+'.wav');let bytes,cacheStatus='hit';
   try{bytes=await readFile(cached);}catch{
+    cacheStatus='generated';
     const combined=AbortSignal.any([signal||new AbortController().signal,AbortSignal.timeout(55000)]);
     const connection=await openNodeSpeech(process.env,combined);
     try{bytes=pcmToWav(await connection.synthesize(text,speed===.8?'slow':'normal',voice));}
@@ -21,7 +23,7 @@ export async function synthesizeDoubao(text,file,signal,{speed=1,voice=DEFAULT_V
     const tmp=cached+'.'+randomUUID()+'.tmp';await writeFile(tmp,bytes);await rename(tmp,cached);
   }
   if(signal?.aborted)throw new Error('语音合成已取消');
-  await writeFile(file,bytes);const info=await probe(file,signal);return {file,duration:info.duration};
+  await writeFile(file,bytes);const info=await probe(file,signal);return {file,duration:info.duration,cacheStatus,cacheKey:key};
 }
 
 // Narration only: the source audio never passes through this filter graph.
