@@ -1,10 +1,11 @@
+import {promptText,promptUtterance} from './prompt-speech.js';
 const CONTROLS='button,a[href],input:not([type="hidden"]),select,textarea,summary,[role="button"],[role="switch"],[role="slider"]';
 export function focusLabel(element){
  const referenced=element.getAttribute('aria-labelledby')?.split(/\s+/).map(id=>element.ownerDocument.getElementById(id)?.textContent||'').join(' ');
  let label=element.getAttribute('data-focus-label')||element.getAttribute('aria-label')||referenced;
  if(!label&&element.labels?.length)label=[...element.labels].map(x=>x.textContent).join(' ');
  if(!label){const copy=element.cloneNode(true);copy.querySelectorAll('svg,[aria-hidden="true"],kbd').forEach(x=>x.remove());label=copy.textContent||element.getAttribute('title')||element.getAttribute('placeholder');}
- label=String(label||'').replace(/\s+/g,' ').trim();if(!label)return '';
+ label=promptText(label).replace(/\s+/g,' ').trim();if(!label)return '';
  const tag=element.tagName.toLowerCase(),role=element.getAttribute('role'),type=element.getAttribute('type');
  if(tag==='select')return `${label}，${element.selectedOptions?.[0]?.textContent||'未选择'}。`;
  if(role==='switch'||type==='checkbox')return `${label}，${element.getAttribute('aria-checked')==='true'||element.checked?'已开启':'已关闭'}。`;
@@ -12,7 +13,7 @@ export function focusLabel(element){
  return label;
 }
 export class FocusReader{
- constructor({enabled,beforeSpeak,status}){this.enabled=enabled;this.beforeSpeak=beforeSpeak;this.status=status;this.keyboard=false;this.sequence=0;this.timer=null;}
+ constructor({enabled,beforeSpeak,status,rate=()=>1}){this.enabled=enabled;this.beforeSpeak=beforeSpeak;this.status=status;this.rate=rate;this.keyboard=false;this.sequence=0;this.timer=null;}
  start(){
   document.addEventListener('keydown',e=>{if(e.key==='Tab'&&!e.isComposing&&!e.ctrlKey&&!e.metaKey&&!e.altKey){this.keyboard=true;this.stop();}},true);
   document.addEventListener('pointerdown',()=>{this.keyboard=false;this.stop();},true);
@@ -24,10 +25,9 @@ export class FocusReader{
   this.stop();let label=focusLabel(el);if(!label)return;const token=this.sequence;
   this.timer=setTimeout(()=>{if(token!==this.sequence||el!==document.activeElement||!this.enabled())return;
    this.beforeSpeak();label=focusLabel(el);if(!label)return;if(!window.speechSynthesis){this.render(label,'unavailable');return;}
-   const utterance=new SpeechSynthesisUtterance(label);utterance.lang='zh-CN';utterance.rate=1.08;
-   const voices=window.speechSynthesis.getVoices();const local=voices.find(v=>v.localService&&/^zh[-_]CN/i.test(v.lang))||voices.find(v=>v.localService&&/^zh/i.test(v.lang));if(local)utterance.voice=local;
+   const utterance=promptUtterance(label,this.rate());
    this.activeUtterance=utterance;this.render(label,'pending');
-   utterance.onstart=()=>{if(token===this.sequence){this.render(label,'speaking');if(this.status)this.status.dataset.spokenLabel=label;}};
+   utterance.onstart=()=>{if(token===this.sequence){this.render(label,'speaking');if(this.status){this.status.dataset.spokenLabel=utterance.text;this.status.dataset.spokenRate=String(utterance.rate);}}};
    utterance.onend=()=>{if(token===this.sequence){this.activeUtterance=null;this.render(label,'idle');}};
    utterance.onerror=()=>{if(token===this.sequence){this.activeUtterance=null;this.render(label,'unavailable');}};
    window.speechSynthesis.speak(utterance);
