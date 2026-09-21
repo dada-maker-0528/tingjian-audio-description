@@ -1,41 +1,44 @@
 import {DEFAULT_VOICE,isVoice} from './voices.js';
+import {validateScenePlan} from './scene-plan.js';
 export const defaults = () => ({speed:'normal',gain:0.88,density:'balanced',voice:DEFAULT_VOICE});
 export function copySettings(settings){const {speed,gain,density,voice}={...defaults(),...settings};return {speed,gain,density,voice};}
 export function changeNarrationVoice(task,voice){
  if(!isVoice(voice))throw new Error('不支持这个音色。');
  if((task.candidate.voice||DEFAULT_VOICE)===voice)return false;
- task.candidate={...task.candidate,voice};task.version++;task.verifiedVersion=null;
- if(task.stage==='medium'){task.mediumEdited=true;task.mediumConfirmedVersion=null;}
+ task.candidate={...task.candidate,voice};task.version++;
+ if(['short','medium'].includes(task.stage))task.confirmedSceneCount=0;
  if(task.stage==='full-review'){task.renderedVersion=null;task.confirmed=null;}
  task.updated=Date.now();return true;
 }
-export function newTask(film={title:'新视频',id:'unknown'}){return {id:'film-'+Date.now(),assetId:film.id,title:film.title+' · 我的口述版',stage:'roles',version:1,candidate:defaults(),confirmed:null,mediumEdited:false,mediumConfirmedVersion:null,verifiedVersion:null,completed:false,saved:false,chat:[],updated:Date.now()};}
-export function confirmStage(task){
+export function newTask(film){const totalScenes=validateScenePlan(film).length;return {id:'film-'+Date.now(),assetId:film.id,title:film.title+' · 我的口述版',stage:'roles',version:1,candidate:defaults(),confirmed:null,scenePlanVersion:film.scenePlanVersion,totalScenes,sceneCount:1,confirmedSceneCount:0,completed:false,saved:false,chat:[],updated:Date.now()};}
+export function migrateTaskToScenes(task,film){
+ if(!task||task.completed)return task;
+ const totalScenes=validateScenePlan(film).length;
+ if(task.scenePlanVersion===film.scenePlanVersion&&['roles','short','medium','full'].includes(task.stage))return {...task,totalScenes,sceneCount:Math.max(1,Math.min(totalScenes,Number(task.sceneCount)||1))};
+ const {mediumEdited,mediumConfirmedVersion,verifiedVersion,...kept}=task;
+ return {...kept,stage:task.stage==='roles'?'roles':'short',version:(Number(task.version)||1)+1,scenePlanVersion:film.scenePlanVersion,totalScenes,sceneCount:1,confirmedSceneCount:0,confirmed:null,sceneMigrationNotice:'制作已更新为按完整场景确认，保留你的旁白设置，请先试听第一个场景。'};
+}
+export function confirmStage(task,direction='full'){
   if(task.completed)throw new Error('这个任务已经完成。');
   const stage=task.stage;
-  if(stage==='roles'){task.stage='short';return 'short';}
-  if(stage==='short'){task.confirmed={...task.candidate,version:task.version};task.stage='medium';return 'medium';}
-  if(stage==='medium'){
+  if(stage==='roles'){task.sceneCount=1;task.stage='short';return 'short';}
+  if(stage==='short'||stage==='medium'){
+    if(!Number.isInteger(task.sceneCount)||task.sceneCount<1||task.sceneCount>task.totalScenes)throw new Error('当前场景范围不正确，请重新选择视频。');
     task.confirmed={...task.candidate,version:task.version};
-    task.mediumConfirmedVersion=task.version;
-    if(task.mediumEdited){task.stage='verify';return 'verify';}
-    task.stage='full';return 'full';
-  }
-  if(stage==='verify'){
-    task.verifiedVersion=task.version;
-    task.confirmed={...task.candidate,version:task.version};
+    task.confirmedSceneCount=task.sceneCount;
+    if(stage==='short'&&task.totalScenes>1){task.sceneCount=Math.min(3,task.totalScenes);task.stage='medium';return 'medium';}
+    if(stage==='medium'&&direction==='next'&&task.sceneCount<task.totalScenes){task.sceneCount++;return 'medium';}
     task.stage='full';return 'full';
   }
   throw new Error('当前阶段尚不能确认。');
 }
 export function canComplete(task){
-  return task.stage==='full' && task.confirmed?.version===task.version && (task.mediumEdited ? task.verifiedVersion===task.version && task.mediumConfirmedVersion!==null : task.mediumConfirmedVersion===task.version);
+  return task.stage==='full'&&task.totalScenes>0&&task.confirmed?.version===task.version&&task.confirmedSceneCount>=Math.min(3,task.totalScenes);
 }
 export function applyFeedback(task,text){
-  if(!['short','medium','verify'].includes(task.stage))return {ok:false,message:'当前演示支持在试听阶段调整旁白。人物称呼已按短片中的对白预设。'};
+  if(!['short','medium'].includes(task.stage))return {ok:false,message:'请在场景试听阶段调整旁白。人物称呼已按短片中的对白预设。'};
   const proposal=proposeFeedback(task.candidate,text);if(!proposal.ok)return proposal;
-  task.candidate=proposal.settings;task.version++;task.verifiedVersion=null;
-  if(task.stage==='medium'){task.mediumEdited=true;task.mediumConfirmedVersion=null;}
+  task.candidate=proposal.settings;task.version++;task.confirmedSceneCount=0;
   task.updated=Date.now();
   return {...proposal,message:'已确认修改，正在生成新版。请试听后再确认后续片段。'};
 }

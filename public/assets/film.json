@@ -36,24 +36,6 @@
       "nameSource": "姓名未明确，按外貌称呼"
     }
   ],
-  "samples": {
-    "short": {
-      "start": 0,
-      "duration": 7
-    },
-    "medium": {
-      "start": 0,
-      "duration": 45
-    },
-    "verify": {
-      "start": 110,
-      "duration": 7
-    },
-    "full": {
-      "start": 0,
-      "duration": 184.2
-    }
-  },
   "covers": [
     {
       "file": "real-scene-1.jpg",
@@ -73,10 +55,6 @@
     "upload": "assets/real-guide-upload.m4a",
     "analyzing": "assets/real-guide-analyzing.m4a",
     "roles": "assets/real-guide-roles.m4a",
-    "short": "assets/real-guide-short.m4a",
-    "medium": "assets/real-guide-medium.m4a",
-    "medium-edited": "assets/real-guide-medium-edited.m4a",
-    "verify": "assets/real-guide-verify.m4a",
     "generating": "assets/real-guide-generating.m4a",
     "full": "assets/real-guide-full.m4a",
     "complete": "assets/real-guide-complete.m4a",
@@ -94,10 +72,6 @@
     "upload": "请选择视频文件，或者使用已经准备好的真人影视片段，创业之路。",
     "analyzing": "视频已选好。正在模拟整理人物和镜头。完成后，会先为你介绍角色。",
     "roles": "预设介绍已经准备好。先认识三位主要人物：景浩、赵总和戴眼镜的男子。你可以重听，也可以直接继续。",
-    "short": "七秒样片做好了。按空格试听。觉得合适，选择满意，继续制作四十五秒。也可以和AI说说问题。",
-    "medium": "四十五秒样片做好了。我沿用了刚才确认的设置。按空格试听，满意后可以制作完整视频。",
-    "medium-edited": "四十五秒样片已经调整。请先试听，再选择修改满意，进行短片复验。",
-    "verify": "这是另一处镜头的七秒复验。我使用了更新后的设置。听着合适，就可以制作完整视频。",
     "generating": "正在根据当前设置准备样片。完成后请试听，再决定是否继续。",
     "full": "接下来，按照已经确认的设置，完成整段视频。完成后你可以直接听，也可以加入自己的视频库。",
     "complete": "完整视频已准备好，总长三分零四秒。选择播放，或者加入我的视频。",
@@ -153,7 +127,7 @@
       {
         "start": 110.4,
         "end": 113.57466666666667,
-        "maxDuration": 4.0,
+        "maxDuration": 4,
         "text": "工人坐在工作台前，分头忙碌。",
         "conciseText": "工人围坐在工作台前。",
         "kind": "narration"
@@ -195,7 +169,7 @@
       {
         "start": 110.4,
         "end": 111.8397,
-        "maxDuration": 4.0,
+        "maxDuration": 4,
         "text": "工人围坐在工作台前。",
         "conciseText": "工人围坐在工作台前。",
         "kind": "narration"
@@ -237,7 +211,7 @@
       {
         "start": 110.4,
         "end": 113.5115,
-        "maxDuration": 4.0,
+        "maxDuration": 4,
         "text": "工人坐在工作台前，分头忙碌。",
         "conciseText": "工人围坐在工作台前。",
         "kind": "narration"
@@ -279,7 +253,7 @@
       {
         "start": 110.4,
         "end": 112.5131,
-        "maxDuration": 4.0,
+        "maxDuration": 4,
         "text": "工人围坐在工作台前。",
         "conciseText": "工人围坐在工作台前。",
         "kind": "narration"
@@ -329,12 +303,88 @@
         {
           "start": 110.4,
           "end": 113.57466666666667,
-          "maxDuration": 4.0,
+          "maxDuration": 4,
           "text": "工人坐在工作台前，分头忙碌。",
           "conciseText": "工人围坐在工作台前。",
           "kind": "narration"
         }
       ]
     }
-  }
+  },
+  "scenePlanVersion": "user-film-a711ab9d-scenes-v1",
+  "scenePlanSource": "根据本片地点、事件连续性和画面转场预设，已人工核对。",
+  "scenes": [
+    {
+      "id": "scene-01",
+      "title": "城市骑行",
+      "start": 0,
+      "end": 12.2
+    },
+    {
+      "id": "scene-02",
+      "title": "工友合影",
+      "start": 12.2,
+      "end": 19.96
+    },
+    {
+      "id": "scene-03",
+      "title": "夜间商谈旧手机",
+      "start": 19.96,
+      "end": 40.32
+    },
+    {
+      "id": "scene-04",
+      "title": "办公楼内追赶",
+      "start": 40.32,
+      "end": 48
+    },
+    {
+      "id": "scene-05",
+      "title": "停车处争取会面",
+      "start": 48,
+      "end": 52.48
+    },
+    {
+      "id": "scene-06",
+      "title": "车厢内商谈",
+      "start": 52.48,
+      "end": 89.16
+    },
+    {
+      "id": "scene-07",
+      "title": "夜间商议计划",
+      "start": 89.16,
+      "end": 103.92
+    },
+    {
+      "id": "scene-08",
+      "title": "厂房筹备与劳作",
+      "start": 103.92,
+      "end": 116.56
+    },
+    {
+      "id": "scene-09",
+      "title": "室内谈租金",
+      "start": 116.56,
+      "end": 128.12
+    },
+    {
+      "id": "scene-10",
+      "title": "雨中乘车交谈",
+      "start": 128.12,
+      "end": 139.8
+    },
+    {
+      "id": "scene-11",
+      "title": "工友聚在一起",
+      "start": 139.8,
+      "end": 158.36
+    },
+    {
+      "id": "scene-12",
+      "title": "办公室再次商谈",
+      "start": 158.36,
+      "end": 184.2
+    }
+  ]
 }

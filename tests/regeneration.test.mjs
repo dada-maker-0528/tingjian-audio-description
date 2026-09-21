@@ -1,15 +1,16 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {defaults,newTask,confirmStage,proposeFeedback,applyFeedback,newFullRevision,markFullRevisionReady,acceptFullRevision,changeNarrationVoice} from '../public/flow.js';
-const film={id:'film-a',title:'第一部'};
-test('feedback remains a proposal until confirmed and medium edits still require verification',()=>{
+import {sceneFilm} from './fixtures/scene-film.mjs';
+const film={...sceneFilm,id:'film-a',title:'第一部'};
+test('feedback remains a proposal until confirmed and scene changes require renewed confirmation',()=>{
  const task=newTask(film);confirmStage(task);confirmStage(task);const before=structuredClone(task);
  const proposal=proposeFeedback(task.candidate,'旁白慢一点');assert(proposal.ok);assert.equal(proposal.settings.speed,'slow');assert.deepEqual(task,before);
- assert(applyFeedback(task,'旁白慢一点').ok);assert.equal(task.candidate.speed,'slow');assert.equal(confirmStage(task),'verify');
+ assert(applyFeedback(task,'旁白慢一点').ok);assert.equal(task.candidate.speed,'slow');assert.equal(task.confirmedSceneCount,0);assert.equal(confirmStage(task),'full');assert.equal(task.confirmedSceneCount,3);
 });
 test('full video regeneration creates a separate version without changing the original or another draft',()=>{
  const original={id:'saved-original',assetId:film.id,title:film.title,version:2,settings:defaults(),position:84};
- const before=structuredClone(original),draft=newTask({id:'film-b',title:'第二部'}),draftBefore=structuredClone(draft);
+ const before=structuredClone(original),draft=newTask({...sceneFilm,id:'film-b',title:'第二部'}),draftBefore=structuredClone(draft);
  const proposal=proposeFeedback(original.settings,'描述少一点');const revision=newFullRevision(original,film,proposal.settings);
  assert.notEqual(revision.id,original.id);assert.equal(revision.sourceId,original.id);assert.equal(revision.version,3);assert.equal(revision.candidate.density,'concise');
  assert.equal(revision.completed,false);assert.equal(revision.renderedVersion,null);assert.deepEqual(original,before);assert.deepEqual(draft,draftBefore);

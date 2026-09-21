@@ -3,6 +3,7 @@ import {DEFAULT_VOICE,VOICES,isVoice} from '../public/voices.js';
 import {openSpeech,SpeechError} from './volc-client.mjs';
 import {pcmToWav} from './volc-protocol.mjs';
 import {serveDemoVideo} from './media.mjs';
+import {isSceneRange} from '../public/scene-plan.js';
 const JSON_HEADERS={'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store'};
 const json=(data,status=200)=>new Response(JSON.stringify(data),{status,headers:JSON_HEADERS});
 function base64(bytes){let binary='';for(let i=0;i<bytes.length;i+=8192)binary+=String.fromCharCode(...bytes.subarray(i,i+8192));return btoa(binary);}
@@ -13,9 +14,9 @@ export function validateInput(body){
   if(typeof body.text!=='string'||!body.text.trim()||body.text.length>400)throw new SpeechError('bad_text','语音文字需要在 1—400 字之间。',400);
   return {kind:'guide',text:body.text.trim(),voice};
  }
- const film=findFilm(body.filmId);const ranges=new Set(Object.values(film?.samples||{}).map(x=>`${x.start}:${x.duration}`));
- if(body.kind!=='narration'||!film||!ranges.has(`${body.start}:${body.duration}`)||!['normal','slow'].includes(body.speed)||!['balanced','concise'].includes(body.density))throw new SpeechError('bad_input','这组旁白设置与当前视频不匹配，请刷新后再试。',400);
- return {kind:'narration',filmId:film.id,start:body.start,duration:body.duration,speed:body.speed,density:body.density,voice};
+ const film=findFilm(body.filmId);
+ if(body.kind!=='narration'||!film||!isSceneRange(film,body.start,body.duration)||body.scenePlanVersion&&body.scenePlanVersion!==film.scenePlanVersion||!['normal','slow'].includes(body.speed)||!['balanced','concise'].includes(body.density))throw new SpeechError('bad_input','试听范围需要覆盖按顺序排列的完整场景，请刷新后再试。',400);
+ return {kind:'narration',filmId:film.id,scenePlanVersion:film.scenePlanVersion,start:body.start,duration:body.duration,speed:body.speed,density:body.density,voice};
 }
 export async function handleTTS(request,env,connector=openSpeech){
  if(request.method!=='POST')return json({code:'method_not_allowed',message:'请使用语音合成按钮。'},405);
@@ -33,12 +34,12 @@ export async function handleTTS(request,env,connector=openSpeech){
   }
   const film=findFilm(body.filmId);
   const source=film.narration[`${body.speed}-${body.density}`].filter(c=>c.start>=body.start&&c.start<body.start+body.duration);const segments=[];
-  for(const cue of source){let text=cue.text,pcm=await connection.synthesize(text,body.speed,body.voice);const gap=cue.maxDuration;
+  for(const cue of source){let text=cue.text,pcm=await connection.synthesize(text,body.speed,body.voice);const gap=Math.min(cue.maxDuration,body.start+body.duration-cue.start);
     if(pcm.length/48000>gap){const concise=film.narration['normal-concise'].find(c=>c.start===cue.start)?.text;if(concise&&concise!==text){text=concise;pcm=await connection.synthesize(text,body.speed,body.voice);}}
     if(pcm.length/48000>gap)throw new SpeechError('timing_overflow','当前旁白放不进原片空隙，请改为简洁描述或自然语速。',422);
     segments.push({start:cue.start,end:cue.start+pcm.length/48000,text,pcm:base64(pcm)});
   }
-  return json({provider:'volcengine',filmId:film.id,voice:body.voice,sampleRate:24000,trackDuration:film.duration,segments});
+  return json({provider:'volcengine',filmId:film.id,scenePlanVersion:film.scenePlanVersion,voice:body.voice,sampleRate:24000,trackDuration:film.duration,segments});
  }catch(e){return json({code:e instanceof SpeechError?e.code:'synthesis_failed',message:e instanceof SpeechError?e.message:'在线语音暂时不可用，请重试或切换本地演示音频。'},e instanceof SpeechError?e.status:502);}
  finally{clearTimeout(timeout);request.signal.removeEventListener('abort',onAbort);connection?.close();}
 }

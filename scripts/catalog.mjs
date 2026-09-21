@@ -1,5 +1,6 @@
 import {readFile,writeFile,access} from 'node:fs/promises';
 import path from 'node:path';
+import {validateScenePlan} from '../public/scene-plan.js';
 export async function buildCatalog(){
  const root=path.resolve('public');const catalog=JSON.parse(await readFile(path.join(root,'catalog.json'),'utf8'));const films=[];const ids=new Set(),fileNames=new Set();
  if(!Array.isArray(catalog.manifests)||!catalog.manifests.length)throw new Error('Public catalog needs at least one film');
@@ -10,6 +11,7 @@ export async function buildCatalog(){
   if(typeof film.video!=='string'||!film.fileName||film.fileName!==path.basename(film.video)||fileNames.has(film.fileName))throw new Error('Every public film needs a unique video fileName');
   if(!Array.isArray(film.covers)||!film.covers.length||film.covers.some(x=>!x.file||!x.alt))throw new Error('Every public film needs a cover and its description');
   ids.add(film.id);fileNames.add(film.fileName);
+  if(film.narration)validateScenePlan(film);
   for(const ref of [film.video,...film.covers.map(x=>'assets/'+x.file)]){const target=path.resolve(root,ref);if(!target.startsWith(root+path.sep))throw new Error('Media path is outside public/');await access(target);}
   films.push(film);
  }

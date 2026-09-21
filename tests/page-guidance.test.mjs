@@ -2,7 +2,8 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {GuideSequence,roleTourSteps,roleKeyAction,pageGuide,roleChoices} from '../public/page-guidance.js';
 import {rateForGuide} from '../public/prompt-speech.js';
-const film={title:'测试短片',roles:[{name:'甲',detail:'第一人的特征'},{name:'乙',detail:'第二人的特征'},{name:'丙',detail:'第三人的特征'}]};
+import {sceneFilm} from './fixtures/scene-film.mjs';
+const film={...sceneFilm,roles:[{name:'甲',detail:'第一人的特征'},{name:'乙',detail:'第二人的特征'},{name:'丙',detail:'第三人的特征'}]};
 
 test('character tour introduces the count, each person, then offers valid replay and continuation choices',()=>{
  const steps=roleTourSteps(film);
@@ -43,9 +44,14 @@ test('character-page shortcuts continue with Space, replay by number, and protec
  assert.equal(roleKeyAction({key:'Tab',shiftKey:true},context),null);
 });
 test('each workflow screen provides its current stage and usable actions',()=>{
- for(const [key,stage] of [['upload','第一步'],['analyzing','第一步'],['roles','第二步'],['short','第三步'],['medium','第四步'],['verify','第四步'],['full','第五步'],['complete','第五步']]){
+ for(const [key,stage] of [['upload','第一步'],['analyzing','第一步'],['roles','第二步'],['short','第三步'],['medium','第四步'],['full','第五步'],['complete','第五步']]){
   assert.ok(pageGuide(key,{film}).includes(stage),key);
  }
  assert.match(pageGuide('generating',{film,task:{stage:'short'}}),/第三步/);
  assert.match(pageGuide('home',{film,filmCount:2,libraryCount:4}),/首页.*2 部.*4 个/);
+});
+test('scene guidance names the complete scope and offers either one more scene or the whole film',()=>{
+ const text=pageGuide('medium',{film,task:{stage:'medium',sceneCount:3}});
+ assert.match(text,/前 3 个完整场景/);assert.match(text,/街道、办公室、车厢/);assert.match(text,/扩展到 4 个场景/);assert.match(text,/全部 5 个场景/);
+ assert.doesNotMatch(text,/七秒|四十五|复验/);
 });

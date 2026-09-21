@@ -1,14 +1,14 @@
 const names=['零','一','二','三','四','五','六','七','八','九','十'];
 const number=n=>names[n]||String(n);
-export const stepNames={upload:'第一步，选择视频',analyzing:'第一步，正在整理视频',roles:'第二步，认识人物',short:'第三步，试听七秒短片',medium:'第四步，试听四十五秒片段',verify:'第四步，七秒复验',full:'第五步，制作完整视频',complete:'第五步，制作完成'};
+export const stepNames={upload:'第一步，选择视频',analyzing:'第一步，正在整理视频',roles:'第二步，认识人物',short:'第三步，确认第一个场景',medium:'第四步，确认连续场景',full:'第五步，制作完整视频',complete:'第五步，制作完成'};
 const navigation='按 Tab 选择下一个操作，按 Shift 加 Tab 返回上一个操作。';
 export function roleChoices(roles,{shortcuts=true,review=false,completed=true}={}){
  const done=completed?'人物介绍已结束。':'';
  const replay=shortcuts&&roles.length?roles.slice(0,9).map((r,i)=>`按数字 ${i+1} 再听${r.name}`).join('，')+'。':'可以按 Tab 选择想再听的人物。';
- return done+(review?'你想再听哪位人物，还是返回当前页面？':'你想继续下一步，还是再听哪位人物的介绍？')+replay+(review?'选择返回，或按空格、Esc 关闭介绍。':'选择“继续到七秒试听”，或按空格继续，进入第三步。');
+ return done+(review?'你想再听哪位人物，还是返回当前页面？':'你想继续下一步，还是再听哪位人物的介绍？')+replay+(review?'选择返回，或按空格、Esc 关闭介绍。':'选择“继续到首个场景”，或按空格继续，进入第三步试听第一个完整场景。');
 }
-export function roleIntroduction(roles,{review=false}={}){
- return (review?'当前是人物介绍。':'当前是第二步，认识人物。')+`已为你整理出${number(roles.length)}位人物，下面按顺序介绍。`;
+export function roleIntroduction(roles,{review=false,sceneCount=0}={}){
+ return (review?'当前是人物介绍。':'当前是第二步，认识人物。')+(!review&&sceneCount?`这段影片已按原片顺序整理为 ${sceneCount} 个场景。`:'')+`已为你整理出${number(roles.length)}位人物，下面按顺序介绍。`;
 }
 export function roleDescription(film,index){
  const role=film.roles?.[index];if(!role)return '';
@@ -16,7 +16,7 @@ export function roleDescription(film,index){
 }
 export function roleTourSteps(film,{index,review=false,shortcuts=true}={}){
  const roles=film.roles||[],single=Number.isInteger(index);
- const steps=single?[]:[{key:'roles',text:roleIntroduction(roles,{review})}];
+ const steps=single?[]:[{key:'roles',text:roleIntroduction(roles,{review,sceneCount:film.scenes?.length})}];
  const indexes=single?[index]:roles.map((_,i)=>i);
  for(const i of indexes)if(roles[i])steps.push({key:'role-'+i,text:roleDescription(film,i),roleIndex:i});
  if(!roles.length||single&&!roles[index])return steps;
@@ -24,20 +24,20 @@ export function roleTourSteps(film,{index,review=false,shortcuts=true}={}){
  return steps;
 }
 export function pageGuide(key,{film={},task,libraryCount=0,filmCount=0,shortcuts=true}={}){
- const short=film.samples?.short?.duration||7,medium=film.samples?.medium?.duration||45;
- const action='按空格播放或暂停。试听后可选择满意继续，也可以选择“和 AI 说说问题”调整旁白。';
+ const total=film.scenes?.length||task?.totalScenes||1,count=key==='short'?1:task?.sceneCount||Math.min(3,total);
+ const sceneNames=(film.scenes||[]).slice(0,count).map(s=>s.title).join('、');
+ const action='按空格播放或暂停。也可以选择“和 AI 说说问题”调整旁白，修改后会重新生成本次场景。';
  switch(key){
   case 'home':return `当前是首页，你的视频库。公开片库有 ${filmCount} 部影片，当前列表有 ${libraryCount} 个视频。按空格创建新视频，${shortcuts?'也可以按数字键播放对应编号的视频。':'也可以选择影片播放。'}${navigation}`;
   case 'library':return `当前是我的全部视频，共 ${libraryCount} 个条目。可以搜索片名，或选择视频继续观看。${navigation}`;
   case 'upload':return `当前是${stepNames.upload}。可选择本地视频预览，或选择“使用演示视频”体验完整制作流程。${navigation}`;
-  case 'analyzing':return `当前是${stepNames.analyzing}。正在为《${film.title||'这段影片'}》准备人物和镜头信息。完成后会进入第二步，先告诉你有多少位人物，再逐个介绍。`;
-  case 'roles':return roleIntroduction(film.roles||[]);
+  case 'analyzing':return `当前是${stepNames.analyzing}。正在为《${film.title||'这段影片'}》整理人物和 ${total} 个场景。我们会先介绍人物，再按原片顺序从第一个完整场景开始试听。`;
+  case 'roles':return roleIntroduction(film.roles||[],{sceneCount:total});
   case 'roles-end':return roleChoices(film.roles||[],{shortcuts});
-  case 'generating':return `当前是${stepNames[task?.stage]||'准备试听片段'}。正在应用你的设置并准备样片，完成后会告诉你如何试听。`;
-  case 'short':return `当前是${stepNames.short}。这段样片长 ${short} 秒。${action}满意后进入第四步，试听 ${medium} 秒。`;
-  case 'medium':case 'medium-edited':return `当前是${stepNames.medium}。${task?.mediumEdited?'这是调整后的样片，确认满意后还会进行一次七秒复验。':'沿用你刚才确认的设置。'}${action}`;
-  case 'verify':return `当前是${stepNames.verify}。换一个镜头确认刚才的调整是否合适。${action}确认满意后进入第五步，制作完整视频。`;
-  case 'full':return `当前是${stepNames.full}。正在按照你确认的设置准备完整影片，完成后会提示你观看或保存。`;
+  case 'generating':return `当前是${stepNames[task?.stage]||'准备场景试听'}。正在应用你的设置，按原片顺序准备前 ${task?.sceneCount||1} 个完整场景，完成后会提示你试听。`;
+  case 'short':return `当前是${stepNames.short}。本次完整播放${film.scenes?.[0]?.title||'第一个场景'}。${action}${total>1?`满意后进入第四步，生成前 ${Math.min(3,total)} 个完整场景。`:'全片只有这一个场景，满意后即可完成整片。'}`;
+  case 'medium':return `当前是${stepNames.medium}。本次按原片顺序连续播放前 ${count} 个完整场景${sceneNames?'，依次是'+sceneNames:''}。${action}${count<total?`满意后可以再扩展到 ${count+1} 个场景，也可以直接生成全部 ${total} 个场景。`:'已经包含全部场景，确认满意后完成整片。'}`;
+  case 'full':return `当前是${stepNames.full}。正在将你确认的旁白设置应用到全部 ${total} 个场景，并按原片顺序衔接，完成后会提示你观看或保存。`;
   case 'complete':return `当前是${stepNames.complete}。《${film.title||'你的影片'}》已准备好。可以播放完整视频，或加入我的视频保存。有问题也可以选择“修改并重新生成”。${navigation}`;
   case 'watch':return `当前是完整观看页面，影片《${film.title||'当前影片'}》。按空格播放或暂停，也可再听角色介绍。${film.narration?'有问题可以选择“修改并重新生成”。':''}可以返回我的视频。${navigation}`;
   case 'full-review':return `当前是完整视频复看，正在准备第 ${task?.version||1} 版。准备好后按空格试听；满意后保存新版，也可以继续修改。原版会保留。`;
