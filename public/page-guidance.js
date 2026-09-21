@@ -26,7 +26,7 @@ export function roleTourSteps(film,{index,review=false,shortcuts=true}={}){
 export function pageGuide(key,{film={},task,libraryCount=0,filmCount=0,shortcuts=true}={}){
  const total=film.scenes?.length||task?.totalScenes||1,count=key==='short'?1:task?.sceneCount||Math.min(3,total);
  const sceneNames=(film.scenes||[]).slice(0,count).map(s=>s.title).join('、');
- const action='按空格播放或暂停。也可以选择“和 AI 说说问题”调整旁白，修改后会重新生成本次场景。';
+ const action='按空格播放或暂停。右侧旁白助手保持展开。'+(shortcuts?'在非输入区域按字母 O 开始语音输入，':'选择语音输入开始说话，')+'按回车结束识别并发送文字。也可直接输入意见，回车发送，Shift 加回车换行。先生成修改指令，确认后才执行。';
  switch(key){
   case 'home':return `当前是首页，你的视频库。公开片库有 ${filmCount} 部影片，当前列表有 ${libraryCount} 个视频。按空格创建新视频，${shortcuts?'也可以按数字键播放对应编号的视频。':'也可以选择影片播放。'}${navigation}`;
   case 'library':return `当前是我的全部视频，共 ${libraryCount} 个条目。可以搜索片名，或选择视频继续观看。${navigation}`;
@@ -39,9 +39,9 @@ export function pageGuide(key,{film={},task,libraryCount=0,filmCount=0,shortcuts
   case 'medium':return `当前是${stepNames.medium}。本次按原片顺序连续播放前 ${count} 个完整场景${sceneNames?'，依次是'+sceneNames:''}。${action}${count<total?`满意后可以再扩展到 ${count+1} 个场景，也可以直接生成全部 ${total} 个场景。`:'已经包含全部场景，确认满意后完成整片。'}`;
   case 'full':return `当前是${stepNames.full}。正在将你确认的旁白设置应用到全部 ${total} 个场景，并按原片顺序衔接，完成后会提示你观看或保存。`;
   case 'complete':return `当前是${stepNames.complete}。《${film.title||'你的影片'}》已准备好。可以播放完整视频，或加入我的视频保存。有问题也可以选择“修改并重新生成”。${navigation}`;
-  case 'watch':return `当前是完整观看页面，影片《${film.title||'当前影片'}》。按空格播放或暂停，也可再听角色介绍。${film.narration?'有问题可以选择“修改并重新生成”。':''}可以返回我的视频。${navigation}`;
+  case 'watch':return `当前是完整观看页面，影片《${film.title||'当前影片'}》。按空格播放或暂停，也可再听角色介绍。${film.narration?'右侧旁白助手保持展开。'+(shortcuts?'在非输入区域按字母 O 开始语音输入，':'选择语音输入开始说话，')+'按回车结束识别并发送。发送后先检查修改指令，再确认执行。':''}可以返回我的视频。${navigation}`;
   case 'full-review':return `当前是完整视频复看，正在准备第 ${task?.version||1} 版。准备好后按空格试听；满意后保存新版，也可以继续修改。原版会保留。`;
-  case 'chat':return `当前是旁白调整对话，正在修改${stepNames[task?.stage]||'当前步骤'}。在输入框写下你的意见，按回车发送；确认修改后，对话会收起并生成新版。按 Esc 取消返回。`;
+  case 'chat':return `当前是旁白助手，正在修改${stepNames[task?.stage]||'当前步骤'}。侧栏保持展开。按 O 开始语音输入，按回车结束识别并发送。输入框内可直接修改文字，Shift 加回车换行。确认执行和满意并继续是两个独立操作。按 Esc 停止语音输入或播报。`;
   default:return '';
  }
 }
