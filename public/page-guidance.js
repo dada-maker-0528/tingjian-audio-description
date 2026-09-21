@@ -38,9 +38,10 @@ export function pageGuide(key,{film={},task,libraryCount=0,filmCount=0,shortcuts
   case 'medium':case 'medium-edited':return `当前是${stepNames.medium}。${task?.mediumEdited?'这是调整后的样片，确认满意后还会进行一次七秒复验。':'沿用你刚才确认的设置。'}${action}`;
   case 'verify':return `当前是${stepNames.verify}。换一个镜头确认刚才的调整是否合适。${action}确认满意后进入第五步，制作完整视频。`;
   case 'full':return `当前是${stepNames.full}。正在按照你确认的设置准备完整影片，完成后会提示你观看或保存。`;
-  case 'complete':return `当前是${stepNames.complete}。《${film.title||'你的影片'}》已准备好。选择“播放完整视频”观看，或选择“加入我的视频”保存。${navigation}`;
-  case 'watch':return `当前是完整观看页面，影片《${film.title||'当前影片'}》。按空格播放或暂停，也可再听角色介绍，或返回我的视频。${navigation}`;
-  case 'chat':return `当前是旁白调整对话，正在修改${stepNames[task?.stage]||'当前步骤'}。在输入框写下你的意见，按回车发送；也可选择示例意见。按 Esc 返回当前步骤。`;
+  case 'complete':return `当前是${stepNames.complete}。《${film.title||'你的影片'}》已准备好。可以播放完整视频，或加入我的视频保存。有问题也可以选择“修改并重新生成”。${navigation}`;
+  case 'watch':return `当前是完整观看页面，影片《${film.title||'当前影片'}》。按空格播放或暂停，也可再听角色介绍。${film.narration?'有问题可以选择“修改并重新生成”。':''}可以返回我的视频。${navigation}`;
+  case 'full-review':return `当前是完整视频复看，正在准备第 ${task?.version||1} 版。准备好后按空格试听；满意后保存新版，也可以继续修改。原版会保留。`;
+  case 'chat':return `当前是旁白调整对话，正在修改${stepNames[task?.stage]||'当前步骤'}。在输入框写下你的意见，按回车发送；确认修改后，对话会收起并生成新版。按 Esc 取消返回。`;
   default:return '';
  }
 }

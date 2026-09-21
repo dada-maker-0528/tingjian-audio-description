@@ -1,10 +1,12 @@
 import {DEFAULT_VOICE,isVoice} from './voices.js';
 export const defaults = () => ({speed:'normal',gain:0.88,density:'balanced',voice:DEFAULT_VOICE});
+export function copySettings(settings){const {speed,gain,density,voice}={...defaults(),...settings};return {speed,gain,density,voice};}
 export function changeNarrationVoice(task,voice){
  if(!isVoice(voice))throw new Error('不支持这个音色。');
  if((task.candidate.voice||DEFAULT_VOICE)===voice)return false;
  task.candidate={...task.candidate,voice};task.version++;task.verifiedVersion=null;
  if(task.stage==='medium'){task.mediumEdited=true;task.mediumConfirmedVersion=null;}
+ if(task.stage==='full-review'){task.renderedVersion=null;task.confirmed=null;}
  task.updated=Date.now();return true;
 }
 export function newTask(film={title:'新视频',id:'unknown'}){return {id:'film-'+Date.now(),assetId:film.id,title:film.title+' · 我的口述版',stage:'roles',version:1,candidate:defaults(),confirmed:null,mediumEdited:false,mediumConfirmedVersion:null,verifiedVersion:null,completed:false,saved:false,chat:[],updated:Date.now()};}
@@ -31,8 +33,15 @@ export function canComplete(task){
 }
 export function applyFeedback(task,text){
   if(!['short','medium','verify'].includes(task.stage))return {ok:false,message:'当前演示支持在试听阶段调整旁白。人物称呼已按短片中的对白预设。'};
+  const proposal=proposeFeedback(task.candidate,text);if(!proposal.ok)return proposal;
+  task.candidate=proposal.settings;task.version++;task.verifiedVersion=null;
+  if(task.stage==='medium'){task.mediumEdited=true;task.mediumConfirmedVersion=null;}
+  task.updated=Date.now();
+  return {...proposal,message:'已确认修改，正在生成新版。请试听后再确认后续片段。'};
+}
+export function proposeFeedback(settings,text){
   if(/只改|只修改|这句话|那句话|这一句|那一句|改名|称呼/.test(text))return {ok:false,message:'这条意见已记录。当前 Demo 暂未准备单句或角色称呼修改的音频版本，原设置保持不变。可以试听现有版本，或调整整段旁白的语速、音量和描述量。'};
-  const s={...task.candidate};const changes=[];
+  const current=copySettings(settings),s={...current};const changes=[];
   if(/慢|太快/.test(text)){s.speed='slow';changes.push('旁白语速稍慢');}
   if(/正常语速|恢复语速/.test(text)){s.speed='normal';changes.push('旁白恢复自然语速');}
   if(/旁白.*(大声|太小|小了|听不清)|提高旁白|大声一点/.test(text)){s.gain=1;changes.push('旁白音量更清晰');}
@@ -42,9 +51,24 @@ export function applyFeedback(task,text){
     if(/声音.*小|声音.*大/.test(text))return {ok:false,clarify:true,message:'你想调整旁白音量吗？可以选择“旁白大声一点”。'};
     return {ok:false,message:'这条意见已记录，当前 Demo 暂未准备对应修改结果。可以试试“旁白慢一点”“旁白大声一点”或“描述少一点”。'};
   }
-  if(JSON.stringify(s)===JSON.stringify(task.candidate))return {ok:false,message:'当前样片已经使用这组设置，可以直接试听。'};
-  task.candidate=s;task.version++;task.verifiedVersion=null;
-  if(task.stage==='medium'){task.mediumEdited=true;task.mediumConfirmedVersion=null;}
-  task.updated=Date.now();
-  return {ok:true,changes,message:'好的，'+changes.join('，')+'。只调整口述旁白，原片对白、音乐和画面速度保持不变。请试听新版；确认满意后，这组设置才会用于后续片段。'};
+  if(JSON.stringify(s)===JSON.stringify(current))return {ok:false,message:'当前视频已经使用这组设置，可以直接试听，或提出其他修改。'};
+  return {ok:true,settings:s,changes,message:'本次修改：'+changes.join('，')+'。请确认修改，之后自动收起对话并重新生成。'};
+}
+export function newFullRevision(source,film,settings,history=[]){
+ if(source.assetId&&source.assetId!==film.id)throw new Error('修改对象与当前影片不一致。');
+ const editing=source.stage==='full-review'&&!source.completed;
+ const rawVersion=Number(source.version||source.settings?.version||source.confirmed?.version||1);
+ const previousVersion=Number.isFinite(rawVersion)&&rawVersion>0?rawVersion:1,version=previousVersion+1;
+ const baseTitle=source.baseTitle||String(source.title||film.title).replace(/ · 第 \d+ 版$/,'');
+ const original=editing?source.sourceSnapshot:{id:source.id,assetId:film.id,title:source.title||film.title,settings:{...copySettings(source.settings||source.confirmed||source.candidate),version:previousVersion},version:previousVersion,position:source.position||0,created:source.created||Date.now()};
+ return {id:editing?source.id:'revision-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,8),assetId:film.id,sourceId:source.sourceId||source.id,sourceSnapshot:original?{...original,settings:{...original.settings}}:null,baseTitle,title:`${baseTitle} · 第 ${version} 版`,stage:'full-review',version,candidate:copySettings(settings),confirmed:null,renderedVersion:null,completed:false,saved:false,chat:history.map(m=>({...m})),updated:Date.now()};
+}
+export function markFullRevisionReady(task,version){
+ if(task.stage!=='full-review'||task.version!==version||task.completed)return false;
+ task.renderedVersion=version;return true;
+}
+export function acceptFullRevision(task){
+ if(task.stage!=='full-review'||task.renderedVersion!==task.version||task.completed)throw new Error('新版尚未准备好，请完成生成并试听后再保存。');
+ task.confirmed={...copySettings(task.candidate),version:task.version};task.completed=true;task.saved=false;task.updated=Date.now();
+ return {id:task.id,assetId:task.assetId,title:task.title,version:task.version,sourceId:task.sourceId,settings:{...task.confirmed},position:0,created:Date.now()};
 }
