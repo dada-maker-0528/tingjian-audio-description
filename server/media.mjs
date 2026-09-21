@@ -1,7 +1,7 @@
 // A fixed media route preserves seeking even when the asset binding ignores Range.
-export async function serveDemoVideo(request,assets){
+export async function serveDemoVideo(request,assets,assetPath='/assets/user-film.mp4'){
  if(!['GET','HEAD'].includes(request.method))return new Response(null,{status:405});
- const url=new URL(request.url);url.pathname='/assets/rain-before.mp4';
+ const url=new URL(request.url);url.pathname=assetPath;
  const headers=new Headers(request.headers);headers.delete('Range');
  const source=await assets.fetch(new Request(url,{method:'GET',headers}));
  if(!source.ok)return new Response('Video unavailable',{status:502});

@@ -1,5 +1,5 @@
 export const defaults = () => ({speed:'normal',gain:0.88,density:'balanced'});
-export function newTask(){return {id:'film-'+Date.now(),title:'雨停之前 · 我的口述版',stage:'roles',version:1,candidate:defaults(),confirmed:null,mediumEdited:false,mediumConfirmedVersion:null,verifiedVersion:null,completed:false,saved:false,chat:[],updated:Date.now()};}
+export function newTask(film={title:'新视频',id:'unknown'}){return {id:'film-'+Date.now(),assetId:film.id,title:film.title+' · 我的口述版',stage:'roles',version:1,candidate:defaults(),confirmed:null,mediumEdited:false,mediumConfirmedVersion:null,verifiedVersion:null,completed:false,saved:false,chat:[],updated:Date.now()};}
 export function confirmStage(task){
   if(task.completed)throw new Error('这个任务已经完成。');
   const stage=task.stage;
