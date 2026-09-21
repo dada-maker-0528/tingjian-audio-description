@@ -1,0 +1,11 @@
+import {rm,mkdir,cp,readFile,writeFile} from 'node:fs/promises';
+import {build} from 'esbuild';
+await rm('dist',{recursive:true,force:true});
+await mkdir('dist/server',{recursive:true});
+await mkdir('dist/.openai',{recursive:true});
+await cp('public','dist/client',{recursive:true});
+const hosting=JSON.parse(await readFile('.openai/hosting.json','utf8'));
+delete hosting.static;
+await writeFile('dist/.openai/hosting.json',JSON.stringify(hosting,null,2));
+await build({entryPoints:['server/worker.mjs'],outfile:'dist/server/index.js',bundle:true,format:'esm',platform:'neutral',target:'es2022',external:['cloudflare:*'],minify:false});
+console.log('Built Worker and browser assets');

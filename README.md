@@ -1,0 +1,33 @@
+# 听见 · AI 口述影像
+
+中文助盲口述影像 Demo，内置 3 分 20 秒原创模拟短片《雨停之前》。画面分析、角色信息和文字反馈理解为预设流程；在线语音使用火山引擎豆包 TTS 2.0 的双向 WebSocket 接口。
+
+## 本地运行
+
+安装依赖后，在项目根目录创建 `.dev.vars`，填入以下配置，再运行 `npm run dev`：
+
+```dotenv
+VOLC_TTS_KEY=YOUR_API_KEY
+VOLC_TTS_RESOURCE_ID=seed-tts-2.0
+VOLC_TTS_SPEAKER=zh_female_vv_uranus_bigtts
+```
+
+`.dev.vars` 已被忽略，不应提交或发给浏览器。线上密钥保存在 Sites 的秘密环境变量中。网站目前仅所有者可访问。
+
+## 接入行为
+
+- `/api/tts/status` 只返回是否配置和服务名称，不返回密钥。
+- `/api/tts` 在服务端连接 `wss://openspeech.bytedance.com/api/v3/tts/bidirection`，完成连接、会话、合成及结束事件。
+- 引导文字返回 WAV；影片旁白逐句返回 PCM，浏览器将其放回对应时点，并缓存到本地 IndexedDB。
+- `speech_rate` 使用自然语速 `0` 或慢速 `-20`。旁白过长时先尝试更简洁的文案，仍超时则拒绝，避免覆盖原片对白。
+- 原片速度、对白和音乐保持不变。旁白音量通过独立音轨控制。
+- 语音与快捷键面板可以选择在线语音或本地演示音频。在线请求失败会明确提示并使用本地备用，切换页面和停止提示会取消等待。
+- `/api/media/rain-before.mp4` 提供正确的 HTTP Range 响应，以支持短样片和复验镜头定位。
+
+## 验证与发布
+
+`npm test` 检查提供的二进制协议、输入范围、跨站请求、密钥错误处理、旁白时长及视频分段响应。`npm run build` 生成 `dist/server/index.js` 与 `dist/client/`。发布使用已有 `.openai/hosting.json` 中的项目，保留私有访问。
+
+已通过真实 API 验证中文引导、7 秒慢速旁白及完整影片 9 处慢速旁白。浏览器中已核验在线音频播放、独立原片速度、样片定位和生成结果缓存。旧的离线 HTML 仍使用内置音频，不需要也不包含密钥。
+
+协议依据：用户提供的 `TTS Websocket Bidirection protocols.zip`；火山引擎官方 V3 文档与真实响应事件。
