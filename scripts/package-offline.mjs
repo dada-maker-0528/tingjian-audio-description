@@ -1,8 +1,10 @@
 import {readFile,writeFile,readdir,mkdir} from 'node:fs/promises';
 import {build} from 'esbuild';
+import {buildCatalog} from './catalog.mjs';
+await buildCatalog();
 await mkdir('outputs',{recursive:true});
 const result=await build({entryPoints:['public/app.js'],bundle:true,format:'iife',platform:'browser',target:'es2022',write:false,minify:true});
-const types={'.mp4':'video/mp4','.m4a':'audio/mp4','.jpg':'image/jpeg','.png':'image/png'};
+const types={'.wav':'audio/wav','.mp4':'video/mp4','.m4a':'audio/mp4','.jpg':'image/jpeg','.png':'image/png'};
 const assets={};
 for(const name of await readdir('public/assets')){const ext=name.slice(name.lastIndexOf('.'));if(types[ext])assets['assets/'+name]={type:types[ext],data:(await readFile('public/assets/'+name)).toString('base64')};}
 let html=await readFile('public/index.html','utf8');

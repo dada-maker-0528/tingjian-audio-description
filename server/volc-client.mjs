@@ -1,4 +1,5 @@
 import {encodeEvent,decodeMessage,joinAudio} from './volc-protocol.mjs';
+import {DEFAULT_VOICE,isVoice,voiceInfo} from '../public/voices.js';
 const ENDPOINT='https://openspeech.bytedance.com/api/v3/tts/bidirection';
 export class SpeechError extends Error{constructor(code,message,status=502){super(message);this.code=code;this.status=status;}}
 export async function openSpeech(env,signal,fetcher=fetch){
@@ -18,8 +19,9 @@ export async function openSpeech(env,signal,fetcher=fetch){
  const wait=async(event,sessionId)=>{for(let i=0;i<1000;i++){const m=await receive();if(m.event===event&&(!sessionId||m.sessionId===sessionId))return m;}throw new SpeechError('protocol_error','语音服务事件过多。');};
  const close=()=>{if(closed)return;closed=true;signal?.removeEventListener('abort',abort);try{ws.send(encodeEvent(2));ws.close(1000,'done');}catch{}};
  try{ws.send(encodeEvent(1));await wait(50);}catch(e){close();throw e;}
- return {close,async synthesize(text,speed='normal'){
-   const sessionId=crypto.randomUUID();const params={user:{uid:'tingjian-demo'},namespace:'BidirectionalTTS',req_params:{speaker:env.VOLC_TTS_SPEAKER||'zh_female_vv_uranus_bigtts',audio_params:{format:'pcm',sample_rate:24000,speech_rate:speed==='slow'?-20:0}}};
+ return {close,async synthesize(text,speed='normal',voice=DEFAULT_VOICE){
+   if(!isVoice(voice))throw new SpeechError('bad_voice','请选择支持的音色。',400);
+   const sessionId=crypto.randomUUID();const params={user:{uid:'tingjian-demo'},namespace:'BidirectionalTTS',req_params:{speaker:voiceInfo(voice).speaker,audio_params:{format:'pcm',sample_rate:24000,speech_rate:speed==='slow'?-20:0}}};
    ws.send(encodeEvent(100,params,sessionId));await wait(150,sessionId);
    ws.send(encodeEvent(200,{...params,event:200,req_params:{...params.req_params,text}},sessionId));ws.send(encodeEvent(102,{},sessionId));
    const chunks=[];let bytes=0;

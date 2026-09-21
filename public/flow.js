@@ -1,4 +1,12 @@
-export const defaults = () => ({speed:'normal',gain:0.88,density:'balanced'});
+import {DEFAULT_VOICE,isVoice} from './voices.js';
+export const defaults = () => ({speed:'normal',gain:0.88,density:'balanced',voice:DEFAULT_VOICE});
+export function changeNarrationVoice(task,voice){
+ if(!isVoice(voice))throw new Error('不支持这个音色。');
+ if((task.candidate.voice||DEFAULT_VOICE)===voice)return false;
+ task.candidate={...task.candidate,voice};task.version++;task.verifiedVersion=null;
+ if(task.stage==='medium'){task.mediumEdited=true;task.mediumConfirmedVersion=null;}
+ task.updated=Date.now();return true;
+}
 export function newTask(film={title:'新视频',id:'unknown'}){return {id:'film-'+Date.now(),assetId:film.id,title:film.title+' · 我的口述版',stage:'roles',version:1,candidate:defaults(),confirmed:null,mediumEdited:false,mediumConfirmedVersion:null,verifiedVersion:null,completed:false,saved:false,chat:[],updated:Date.now()};}
 export function confirmStage(task){
   if(task.completed)throw new Error('这个任务已经完成。');

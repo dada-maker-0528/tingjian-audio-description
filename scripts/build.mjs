@@ -1,7 +1,7 @@
 import {rm,mkdir,cp,readFile,writeFile} from 'node:fs/promises';
 import {build} from 'esbuild';
-const film=JSON.parse(await readFile('public/assets/film.json','utf8'));
-await writeFile('public/film-config.js','export default '+JSON.stringify(film)+';\n');
+import {buildCatalog} from './catalog.mjs';
+await buildCatalog();
 await rm('dist',{recursive:true,force:true});
 await mkdir('dist/server',{recursive:true});
 await mkdir('dist/.openai',{recursive:true});

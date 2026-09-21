@@ -1,6 +1,7 @@
-import film from './film-config.js';
+import {defaultFilm} from './catalog-config.js';
 import {assetURL} from './asset-url.js';
-const SAMPLE_RATE=24000,IDENTITY='volc-vivi-2.0-'+film.id;
+import {DEFAULT_VOICE} from './voices.js';
+const SAMPLE_RATE=24000,IDENTITY='volc-voices-2.0-v2';
 function wavFromSegments(segments,duration){
  const bytes=new Uint8Array(44+Math.ceil(duration*SAMPLE_RATE)*2),v=new DataView(bytes.buffer),enc=new TextEncoder();
  const word=(text,at)=>bytes.set(enc.encode(text),at);
@@ -14,9 +15,20 @@ async function saveCache(key,value){const db=await database();if(!db)return;awai
 function aborted(signal){if(signal?.aborted)throw new DOMException('已取消','AbortError');}
 export class SpeechService{
  constructor(){this.available=false;this.cache=new Map();this.queue=Promise.resolve();}
- async discover(){if(location.protocol==='file:'||window.__TINGJIAN_ASSETS__)return false;try{const response=await fetch('/api/tts/status',{cache:'no-store',signal:AbortSignal.timeout(4000)});if(response.ok){const data=await response.json();this.available=data.configured===true&&data.filmId===film.id;}}catch{}return this.available;}
+ async discover(){if(location.protocol==='file:'||window.__TINGJIAN_ASSETS__)return false;try{const response=await fetch('/api/tts/status',{cache:'no-store',signal:AbortSignal.timeout(4000)});if(response.ok){const data=await response.json();this.available=data.configured===true;}}catch{}return this.available;}
  enqueue(job){const result=this.queue.catch(()=>{}).then(job);this.queue=result.catch(()=>{});return result;}
  async request(body,signal){aborted(signal);const response=await fetch('/api/tts',{method:'POST',headers:{'Content-Type':'application/json','X-Tingjian-Request':'1'},body:JSON.stringify(body),signal});if(!response.ok){let data={};try{data=await response.json();}catch{}throw new Error(data.message||'在线语音暂时不可用。');}return response;}
- async guide(text,signal){const key=IDENTITY+':guide:'+text;if(this.cache.has(key))return this.cache.get(key);return this.enqueue(async()=>{aborted(signal);if(this.cache.has(key))return this.cache.get(key);const response=await this.request({kind:'guide',text},signal);const blob=await response.blob();aborted(signal);if(blob.size<=44)throw new Error('语音服务未返回音频。');const url=URL.createObjectURL(blob);this.cache.set(key,url);return url;});}
- async narration(start,duration,settings,signal){const key=[IDENTITY,'narration',start,duration,settings.speed,settings.density].join(':');if(this.cache.has(key))return this.cache.get(key);return this.enqueue(async()=>{aborted(signal);if(this.cache.has(key))return this.cache.get(key);let stored=await readCache(key);aborted(signal);if(!stored){const ready=start===0&&duration===film.duration?film.prebuiltOnline?.[settings.speed+'-'+settings.density]:null;if(ready){const response=await fetch(assetURL(ready.file),{signal});if(!response.ok)throw new Error('已准备的旁白读取失败。');stored={blob:await response.blob(),cues:ready.cues};}else{const response=await this.request({kind:'narration',filmId:film.id,start,duration,speed:settings.speed,density:settings.density},signal);const data=await response.json();aborted(signal);if(data.filmId!==film.id||data.provider!=='volcengine'||data.sampleRate!==SAMPLE_RATE||!Array.isArray(data.segments)||!data.segments.length)throw new Error('旁白音频数据不完整。');const blob=wavFromSegments(data.segments,data.trackDuration);stored={blob,cues:data.segments.map(({start,end,text})=>({start,end,text,kind:'narration'}))};}aborted(signal);await saveCache(key,stored);}aborted(signal);const result={url:URL.createObjectURL(stored.blob),cues:stored.cues,provider:'volcengine'};this.cache.set(key,result);return result;});}
+ async guide(text,signal,voice=DEFAULT_VOICE){const key=[IDENTITY,'guide',voice,text].join(':');if(this.cache.has(key))return this.cache.get(key);return this.enqueue(async()=>{aborted(signal);if(this.cache.has(key))return this.cache.get(key);const response=await this.request({kind:'guide',text,voice},signal);const blob=await response.blob();aborted(signal);if(blob.size<=44)throw new Error('语音服务未返回音频。');const url=URL.createObjectURL(blob);this.cache.set(key,url);return url;});}
+ async narration(start,duration,settings,signal,film=defaultFilm){
+  const voice=settings.voice||DEFAULT_VOICE;const key=[IDENTITY,film.id,'narration',voice,start,duration,settings.speed,settings.density].join(':');
+  if(this.cache.has(key))return this.cache.get(key);
+  return this.enqueue(async()=>{aborted(signal);if(this.cache.has(key))return this.cache.get(key);let stored=await readCache(key);aborted(signal);
+   if(!stored){const ready=voice===DEFAULT_VOICE&&start===0&&duration===film.duration?film.prebuiltOnline?.[settings.speed+'-'+settings.density]:null;
+    if(ready){const response=await fetch(assetURL(ready.file),{signal});if(!response.ok)throw new Error('已准备的旁白读取失败。');stored={blob:await response.blob(),cues:ready.cues};}
+    else{const response=await this.request({kind:'narration',filmId:film.id,voice,start,duration,speed:settings.speed,density:settings.density},signal);const data=await response.json();aborted(signal);if(data.filmId!==film.id||data.voice!==voice||data.provider!=='volcengine'||data.sampleRate!==SAMPLE_RATE||!Array.isArray(data.segments)||!data.segments.length)throw new Error('旁白音色或视频数据不匹配。');const blob=wavFromSegments(data.segments,data.trackDuration);stored={blob,cues:data.segments.map(({start,end,text})=>({start,end,text,kind:'narration'}))};}
+    aborted(signal);await saveCache(key,stored);
+   }
+   aborted(signal);const result={url:URL.createObjectURL(stored.blob),cues:stored.cues,provider:'volcengine',voice};this.cache.set(key,result);return result;
+  });
+ }
 }
