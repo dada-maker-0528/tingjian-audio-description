@@ -4,7 +4,7 @@ import {SpeechService} from './speech-service.js';
 import {films,defaultFilm,findFilm} from './catalog-config.js';
 import {DEFAULT_VOICE,VOICES,isVoice,voiceInfo} from './voices.js';
 import {FocusReader} from './focus-reader.js';
-import {promptRate,promptRateLabel,promptText,promptUtterance,applyPromptAudioRate} from './prompt-speech.js';
+import {PROMPT_CHANNELS,promptRates,rateForGuide,setChannelRate,promptRateLabel,promptText,promptUtterance,applyPromptAudioRate} from './prompt-speech.js';
 import {mergePublicLibrary,visibleLibrary,hasNarration} from './library.js';
 let film=defaultFilm;
 import {assetURL} from './asset-url.js';
@@ -14,9 +14,9 @@ const time=n=>`${Math.floor(Math.max(0,n||0)/60).toString().padStart(2,'0')}:${M
 const KEY='tingjian-demo-v4';
 let stored={};try{stored=JSON.parse(localStorage.getItem(KEY)||localStorage.getItem('tingjian-demo-'+defaultFilm.id)||'{}')||{};}catch{}
 const validSettings=s=>s&&['normal','slow'].includes(s.speed)&&['balanced','concise'].includes(s.density)&&[0.88,1].includes(s.gain)&&isVoice(s.voice||DEFAULT_VOICE);
-let prefs={guide:false,reader:false,shortcuts:true,focusReadout:true,voice:DEFAULT_VOICE,promptRate:1,...stored.prefs};
+let prefs={guide:false,reader:false,shortcuts:true,focusReadout:true,voice:DEFAULT_VOICE,...stored.prefs};
 if(!isVoice(prefs.voice))prefs.voice=DEFAULT_VOICE;
-prefs.promptRate=promptRate(prefs.promptRate);
+prefs.promptRates=promptRates(prefs.promptRates);delete prefs.promptRate;
 let library=mergePublicLibrary(films,(Array.isArray(stored.library)?stored.library:[]).filter(x=>x&&typeof x.id==='string'&&validSettings(x.settings)).map(x=>({...x,assetId:x.assetId||defaultFilm.id,settings:{...defaults(),...x.settings}})),{...defaults(),voice:prefs.voice});
 let task=stored.draft&&validSettings(stored.draft.candidate)&&findFilm(stored.draft.assetId||defaultFilm.id)?stored.draft:null;
 if(task){task.assetId=task.assetId||defaultFilm.id;task.candidate={...defaults(),...task.candidate};if(task.confirmed)task.confirmed={...defaults(),...task.confirmed};}
@@ -28,7 +28,7 @@ const narration=$('#narration'),guide=$('#guide-audio'),modal=$('#modal'),chat=$
 let roles=film.roles||[];
 function selectFilm(id){const selected=findFilm(id);if(!selected)return false;film=selected;roles=film.roles||[];return true;}
 const durationWords=d=>`${Math.floor(d/60)} 分 ${Math.floor(d%60).toString().padStart(2,'0')} 秒`;
-const keyboardReader=new FocusReader({enabled:()=>prefs.focusReadout!==false&&!prefs.reader,beforeSpeak:()=>{stopGuide();pauseMedia();},status:$('#focus-readout'),rate:()=>prefs.promptRate});
+const keyboardReader=new FocusReader({enabled:()=>prefs.focusReadout!==false&&!prefs.reader,beforeSpeak:()=>{stopGuide();pauseMedia();},status:$('#focus-readout'),rate:()=>prefs.promptRates.focus});
 keyboardReader.start();
 const stageNames={roles:'认识角色',short:'7 秒样片',medium:'45 秒样片',verify:'7 秒复验',full:'完整制作',complete:'制作完成'};
 const guideText={home:'这里是你的视频库。按空格创建新视频。按数字键播放当前编号的视频。按 Tab 前进，按 Shift 加 Tab 返回上一个操作。',upload:'请选择视频文件，或者使用演示视频。',library:'这里是保存的全部视频，可以搜索，也可以继续播放。按 Tab 前进，按 Shift 加 Tab 返回上一个操作。'};
@@ -47,15 +47,15 @@ async function say(key,text,force=false){
  if((!prefs.guide||prefs.reader)&&!force){if(text)announce(text);return false;}
  keyboardReader.stop();pauseMedia();stopGuide();const token=guideToken;guideAbort=new AbortController();
  const words=promptText(text||(key==='watch'?`现在是《${film.title}》，时长 ${durationWords(film.duration)}。按空格播放或暂停。`:(['home','library'].includes(key)?`这里是你的视频库，公开片库有 ${films.length} 部视频。当前列表共 ${library.length} 个条目。按 Tab 选择下一个操作，按 Shift 加 Tab 返回上一个操作。`:(film?.guides?.[key]||guideText[key]))));if(!words)return false;
- let src=null;
+ const rate=rateForGuide(key,prefs.promptRates);let src=null;
  if(liveSpeech()){
   try{src=await speech.guide(words,guideAbort.signal,prefs.voice);}catch(e){if(token!==guideToken||e.name==='AbortError')return false;toast('在线语音暂时不可用，正在使用本地提示音。');}
  }
  if(token!==guideToken)return false;
  if(!src&&film?.guideFiles?.[key]&&film.guides[key]===words)src=assetURL(film.guideFiles[key]);
- if(src){guide.src=src;applyPromptAudioRate(guide,prefs.promptRate);return new Promise(resolve=>{guideResolver=resolve;guide.onended=()=>{guideResolver=null;resolve(token===guideToken);};guide.onerror=()=>{guideResolver=null;toast('语音提示暂时无法播放，请重试。');resolve(false);};guide.play().catch(()=>{guideResolver=null;toast('请点击“再听提示”开始播放。');resolve(false);});});}
+ if(src){guide.src=src;applyPromptAudioRate(guide,rate);return new Promise(resolve=>{guideResolver=resolve;guide.onended=()=>{guideResolver=null;resolve(token===guideToken);};guide.onerror=()=>{guideResolver=null;toast('语音提示暂时无法播放，请重试。');resolve(false);};guide.play().catch(()=>{guideResolver=null;toast('请点击“再听提示”开始播放。');resolve(false);});});}
  if(!window.speechSynthesis){toast('当前浏览器不支持这段语音，请使用文字提示。');return false;}
- return new Promise(resolve=>{guideResolver=resolve;const utterance=promptUtterance(words,prefs.promptRate);utterance.onend=()=>{guideResolver=null;resolve(token===guideToken);};utterance.onerror=()=>{guideResolver=null;resolve(false);};window.speechSynthesis.speak(utterance);});
+ return new Promise(resolve=>{guideResolver=resolve;const utterance=promptUtterance(words,rate);utterance.onend=()=>{guideResolver=null;resolve(token===guideToken);};utterance.onerror=()=>{guideResolver=null;resolve(false);};window.speechSynthesis.speak(utterance);});
 }
 function clearPlayer(){mediaAbort?.abort();mediaAbort=null;activeNarrationCues=null;mediaGeneration++;pauseMedia();if(player){player.removeAttribute('src');player.load();player=null;}narration.removeAttribute('src');narration.load();playerReady=false;}
 function page(html,guideKey,focus=true){clearPlayer();main.innerHTML=html;const heading=main.querySelector('h1');if(heading)heading.tabIndex=-1;fillIcons();$('.main-nav [data-action="home"]').classList.toggle('active',route==='home');$('.main-nav [data-action="library"]').classList.toggle('active',route==='library');currentGuide=guideKey||route;if(focus)focusTitle();updateGuideUI();}
@@ -132,15 +132,25 @@ function replay(){if(!playerReady)return;pauseMedia();seekTo(clipStart);playMedi
 function toggleNarration(){narrationOn=!narrationOn;const b=$('[data-action="narration"]');b.setAttribute('aria-pressed',String(narrationOn));b.innerHTML=icon('headphones')+`<span>${narrationOn?'旁白开启':'原片声音'}</span>`;$('#video-label-text').textContent=narrationOn?(route==='watch'?`完整视频 · ${currentAudioSource==='volcengine'?'豆包合成旁白':'本地演示旁白'}`:`${clipEnd-clipStart} 秒样片 · ${currentAudioSource==='volcengine'?'豆包合成旁白':'本地演示旁白'}`):'原片 · 口述旁白已关闭';if(!narrationOn)narration.pause();else if(playing){narration.currentTime=player.currentTime;narration.play().catch(mediaError);}updateProgress();announce(narrationOn?'口述旁白已开启':'口述旁白已关闭，正在播放原片声音');}
 function showModal(title,content){keyboardReader.stop();pauseMedia();stopGuide();returnFocus=document.activeElement;modal.innerHTML=`<div class="dialog-heading"><h2 id="modal-title">${title}</h2><button class="icon-btn" data-action="close-modal" aria-label="关闭弹窗">${icon('close')}</button></div>${content}`;modal.showModal();}
 function closeModal(){if(!modal.open)return;stopGuide();modal.close();if(returnFocus?.isConnected)returnFocus.focus();}
-function promptRateSettings(){return `<fieldset class="voice-picker prompt-rate-picker"><legend>提示语速</legend><div class="prompt-rate-heading"><label for="prompt-rate">调整提示语速</label><output id="prompt-rate-value" for="prompt-rate" aria-hidden="true">${promptRateLabel(prefs.promptRate)}</output></div><input id="prompt-rate" type="range" min="1" max="5" step="0.5" value="${prefs.promptRate}" aria-label="提示语速" aria-valuetext="${promptRateLabel(prefs.promptRate)}" aria-describedby="prompt-rate-help"><div class="prompt-rate-scale" aria-hidden="true"><span>1 倍 · 常速</span><span>3 倍</span><span>5 倍</span></div><p class="voice-hint" id="prompt-rate-help">用于按钮播报、操作引导和角色介绍。视频与口述旁白按各自设置播放。用左右方向键调节，设置自动保存。</p><div class="voice-buttons"><button class="btn small" data-action="preview-prompt-rate">${icon('play')}试听提示语速</button><button class="btn small" data-action="reset-prompt-rate">恢复 1 倍</button></div><p id="prompt-rate-status" class="voice-hint" role="status"></p></fieldset>`;}
-function setPromptRate(value){
- stopAll();prefs.promptRate=promptRate(value);applyPromptAudioRate(guide,prefs.promptRate);persist();
- const slider=$('#prompt-rate');if(slider){slider.value=prefs.promptRate;slider.setAttribute('aria-valuetext',promptRateLabel(prefs.promptRate));}
- if($('#prompt-rate-value'))$('#prompt-rate-value').textContent=promptRateLabel(prefs.promptRate);
- if($('#prompt-rate-status'))$('#prompt-rate-status').textContent='已保存，提示使用 '+promptRateLabel(prefs.promptRate)+' 语速。';
+function promptRateSettings(){return `<fieldset class="voice-picker prompt-rate-picker"><legend>分别设置语速</legend><p class="voice-hint">三项独立保存，均支持 1—5 倍。视频与口述旁白按各自设置播放。</p>${PROMPT_CHANNELS.map(({id,label,hint})=>`<div class="prompt-rate-control"><div class="prompt-rate-heading"><label for="prompt-rate-${id}">${label}</label><output id="prompt-rate-${id}-value" for="prompt-rate-${id}" aria-hidden="true">${promptRateLabel(prefs.promptRates[id])}</output></div><input id="prompt-rate-${id}" data-prompt-rate="${id}" type="range" min="1" max="5" step="0.5" value="${prefs.promptRates[id]}" aria-label="${label}" aria-valuetext="${promptRateLabel(prefs.promptRates[id])}" aria-describedby="prompt-rate-${id}-help"><div class="prompt-rate-scale" aria-hidden="true"><span>1 倍</span><span>3 倍</span><span>5 倍</span></div><p class="voice-hint" id="prompt-rate-${id}-help">${hint}用左右方向键调节。</p><div class="voice-buttons"><button class="btn small" data-action="preview-prompt-rate" data-channel="${id}" aria-label="试听${label}">${icon('play')}试听</button><button class="btn small" data-action="reset-prompt-rate" data-channel="${id}" aria-label="${label}恢复 1 倍">恢复 1 倍</button></div><p id="prompt-rate-${id}-status" class="voice-hint prompt-rate-status" role="status"></p></div>`).join('')}</fieldset>`;}
+function setPromptRate(channel,value){
+ stopAll();prefs.promptRates=setChannelRate(prefs.promptRates,channel,value);persist();const rate=prefs.promptRates[channel];
+ const slider=$('#prompt-rate-'+channel);if(slider){slider.value=rate;slider.setAttribute('aria-valuetext',promptRateLabel(rate));}
+ $('#prompt-rate-'+channel+'-value').textContent=promptRateLabel(rate);
+ $('#prompt-rate-'+channel+'-status').textContent='已保存为 '+promptRateLabel(rate)+'。';
 }
-function showSettings(){const current=route==='watch'?watching?.settings.voice:task&&['roles','short','medium','verify'].includes(route)?task.candidate.voice:prefs.voice;showModal('语音、音色与快捷键',`<p class="dialog-copy">选择喜欢的旁白声音。Tab 前进，Shift + Tab 后退，选中操作即朗读名称。</p><fieldset class="voice-picker"><legend>豆包音色</legend><label class="field-label" for="voice-select">选择音色</label><select id="voice-select" class="text-input">${VOICES.map(v=>`<option value="${v.id}" ${(current||DEFAULT_VOICE)===v.id?'selected':''}>${v.label}</option>`).join('')}</select><div class="voice-buttons"><button class="btn small" data-action="preview-voice">${icon('play')}试听音色</button><button class="btn primary small" data-action="apply-voice">使用此音色</button></div><p class="voice-hint" id="voice-preview-status" role="status">用于操作引导、当前观看或试听，以及后续新任务。已保存的口述版本保留各自设置。</p>${!liveSpeech()?'<p class="voice-hint">当前使用本地音频。可试听各个音色；应用其他音色需要开启在线合成。</p>':''}</fieldset>${promptRateSettings()}<div class="preference-row"><div><strong>Tab 焦点播报</strong><p>每次切换按钮立即读名称；会先暂停视频，避免声音重叠。</p></div><button class="switch" role="switch" aria-label="Tab 焦点播报" aria-checked="${prefs.focusReadout&&!prefs.reader}" data-action="pref-focus"></button></div><div class="preference-row"><div><strong>在线语音合成</strong><p>${speech.available?'豆包语音 · 支持多种音色':'在线服务未连接，使用本地默认旁白'}</p></div><button class="switch" role="switch" aria-label="在线语音合成" aria-checked="${liveSpeech()}" data-action="pref-online" ${speech.available?'':'disabled'}></button></div><div class="preference-row"><div><strong>产品语音引导</strong><p>听取当前步骤和操作提示</p></div><button class="switch" role="switch" aria-label="产品语音引导" aria-checked="${prefs.guide&&!prefs.reader}" data-action="pref-guide"></button></div><div class="preference-row"><div><strong>读屏优先</strong><p>关闭站内引导与焦点播报，避免重复朗读</p></div><button class="switch" role="switch" aria-label="读屏优先" aria-checked="${prefs.reader}" data-action="pref-reader"></button></div><div class="preference-row"><div><strong>数字快捷键</strong><p>用 1—9 选择当前页面的影片或角色</p></div><button class="switch" role="switch" aria-label="数字快捷键" aria-checked="${prefs.shortcuts}" data-action="pref-shortcuts"></button></div><div class="dialog-actions"><button class="btn" data-action="stop-guide">停止提示</button><button class="btn primary" data-action="close-modal">完成</button></div>`);$('#prompt-rate').addEventListener('input',e=>setPromptRate(e.target.value));}
-async function previewVoice(ratePreview=false){stopAll();const id=ratePreview?prefs.voice:$('#voice-select').value;const status=ratePreview?'#prompt-rate-status':'#voice-preview-status';guide.src=assetURL('assets/voice-preview-'+id+'.wav');applyPromptAudioRate(guide,prefs.promptRate);$(status).textContent='正在以 '+promptRateLabel(prefs.promptRate)+' 试听：'+voiceInfo(id).label;guide.onended=()=>{if($(status))$(status).textContent=ratePreview?'试听结束，提示语速已保存。':'试听结束，可以选择使用这个音色。';};try{await guide.play();}catch{toast('试听未开始，请再点击一次。');}}
+function showSettings(){const current=route==='watch'?watching?.settings.voice:task&&['roles','short','medium','verify'].includes(route)?task.candidate.voice:prefs.voice;showModal('语音、音色与快捷键',`<p class="dialog-copy">选择喜欢的旁白声音。Tab 前进，Shift + Tab 后退，选中操作即朗读名称。</p><fieldset class="voice-picker"><legend>豆包音色</legend><label class="field-label" for="voice-select">选择音色</label><select id="voice-select" class="text-input">${VOICES.map(v=>`<option value="${v.id}" ${(current||DEFAULT_VOICE)===v.id?'selected':''}>${v.label}</option>`).join('')}</select><div class="voice-buttons"><button class="btn small" data-action="preview-voice">${icon('play')}试听音色</button><button class="btn primary small" data-action="apply-voice">使用此音色</button></div><p class="voice-hint" id="voice-preview-status" role="status">用于操作引导、当前观看或试听，以及后续新任务。已保存的口述版本保留各自设置。</p>${!liveSpeech()?'<p class="voice-hint">当前使用本地音频。可试听各个音色；应用其他音色需要开启在线合成。</p>':''}</fieldset>${promptRateSettings()}<div class="preference-row"><div><strong>Tab 焦点播报</strong><p>每次切换按钮立即读名称；会先暂停视频，避免声音重叠。</p></div><button class="switch" role="switch" aria-label="Tab 焦点播报" aria-checked="${prefs.focusReadout&&!prefs.reader}" data-action="pref-focus"></button></div><div class="preference-row"><div><strong>在线语音合成</strong><p>${speech.available?'豆包语音 · 支持多种音色':'在线服务未连接，使用本地默认旁白'}</p></div><button class="switch" role="switch" aria-label="在线语音合成" aria-checked="${liveSpeech()}" data-action="pref-online" ${speech.available?'':'disabled'}></button></div><div class="preference-row"><div><strong>产品语音引导</strong><p>听取当前步骤和操作提示</p></div><button class="switch" role="switch" aria-label="产品语音引导" aria-checked="${prefs.guide&&!prefs.reader}" data-action="pref-guide"></button></div><div class="preference-row"><div><strong>读屏优先</strong><p>关闭站内引导与焦点播报，避免重复朗读</p></div><button class="switch" role="switch" aria-label="读屏优先" aria-checked="${prefs.reader}" data-action="pref-reader"></button></div><div class="preference-row"><div><strong>数字快捷键</strong><p>用 1—9 选择当前页面的影片或角色</p></div><button class="switch" role="switch" aria-label="数字快捷键" aria-checked="${prefs.shortcuts}" data-action="pref-shortcuts"></button></div><div class="dialog-actions"><button class="btn" data-action="stop-guide">停止提示</button><button class="btn primary" data-action="close-modal">完成</button></div>`);modal.querySelectorAll('[data-prompt-rate]').forEach(el=>el.addEventListener('input',e=>setPromptRate(el.dataset.promptRate,e.target.value)));}
+async function playVoiceSample(id,rate,status){stopAll();guide.src=assetURL('assets/voice-preview-'+id+'.wav');applyPromptAudioRate(guide,rate);$(status).textContent='正在以 '+promptRateLabel(rate)+' 试听：'+voiceInfo(id).label;guide.onended=()=>{if($(status))$(status).textContent='试听结束。';};try{await guide.play();}catch{toast('试听未开始，请再点击一次。');}}
+function previewVoice(){return playVoiceSample($('#voice-select').value,1,'#voice-preview-status');}
+function previewPromptRate(channel){
+ if(!PROMPT_CHANNELS.some(({id})=>id===channel))return;
+ const rate=prefs.promptRates[channel],status='#prompt-rate-'+channel+'-status';
+ if(channel!=='focus')return playVoiceSample(prefs.voice,rate,status);
+ stopAll();if(!window.speechSynthesis)return toast('当前浏览器暂不支持焦点语音。');
+ const utterance=promptUtterance('创建新视频。再听提示。再听角色介绍。',rate);
+ $(status).textContent='正在以 '+promptRateLabel(rate)+' 试听 Tab 播报。';
+ utterance.onend=()=>{if($(status))$(status).textContent='试听结束。';};window.speechSynthesis.speak(utterance);
+}
 async function applyVoice(){const id=$('#voice-select').value;if(!isVoice(id))return;if(id!==DEFAULT_VOICE&&!liveSpeech()){toast('请先开启在线语音，再应用这个音色。');return;}stopAll();prefs.voice=id;for(const item of library)if(item.public)item.settings.voice=id;let remake=false;
  if(task&&['roles','short','medium','verify'].includes(route))remake=changeNarrationVoice(task,id);
  if(route==='watch'&&watching)watching.settings.voice=id;
@@ -193,8 +203,8 @@ function handleAction(action,b){
  case 'simulate-voice':$('#feedback-text').value='旁白慢一点';$('#feedback-text').focus();announce('已模拟填入：旁白慢一点。点击发送，提交这条意见。');break;
  case 'settings':showSettings();break;
  case 'preview-voice':previewVoice();break;
- case 'preview-prompt-rate':previewVoice(true);break;
- case 'reset-prompt-rate':setPromptRate(1);break;
+ case 'preview-prompt-rate':previewPromptRate(b.dataset.channel);break;
+ case 'reset-prompt-rate':setPromptRate(b.dataset.channel,1);break;
  case 'apply-voice':applyVoice();break;
  case 'pref-focus':prefs.focusReadout=!(prefs.focusReadout&&!prefs.reader);if(prefs.focusReadout)prefs.reader=false;else keyboardReader.stop();b.setAttribute('aria-checked',String(prefs.focusReadout));$('[data-action="pref-reader"]').setAttribute('aria-checked',String(prefs.reader));persist();updateGuideUI();break;
  case 'help':showHelp();break;
