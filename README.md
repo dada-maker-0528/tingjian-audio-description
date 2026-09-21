@@ -27,6 +27,18 @@ VOLC_TTS_RESOURCE_ID=seed-tts-2.0
 
 `npm test` 检查提供的二进制协议、输入范围、跨站请求、密钥错误处理、旁白时长及视频分段响应。`npm run build` 生成 `dist/server/index.js` 与 `dist/client/`。发布使用已有 `.openai/hosting.json` 中的项目，保持用户指定的访问范围。
 
+## GitHub 自动部署
+
+仓库中的 `.github/workflows/deploy-worker.yml` 会在拉取请求中执行测试、构建与部署预检；合并到 `main` 后部署到 Cloudflare Workers，也可以在 Actions 页面手动运行。前端文件、`server/worker.mjs`、视频素材和 `wrangler.jsonc` 会一起部署；豆包 TTS 仍由 Worker 在服务端调用。
+
+在 GitHub 仓库的 Settings → Secrets and variables → Actions 中添加三个 Repository secrets：`CLOUDFLARE_API_TOKEN`、`CLOUDFLARE_ACCOUNT_ID`、`VOLC_TTS_KEY`。Cloudflare 令牌使用目标账户的 Workers 编辑权限。自动部署会把豆包密钥写入 Worker Secret，前端拿不到它。`VOLC_TTS_RESOURCE_ID` 是公开的产品标识，已在 `wrangler.jsonc` 设置为 `seed-tts-2.0`。
+
+首次部署前需要登录自己的 Cloudflare 账户并配置上述 Secrets；缺少配置时工作流会明确失败，不会把缺少密钥的站点标记为部署成功。部署完成后，从 Actions 的部署输出获取新网址。GitHub + Cloudflare 的网址与原 OpenAI Sites 地址独立。
+
+同事协作时，在 GitHub 仓库 Settings → Collaborators 添加同事；同事创建功能分支并提交拉取请求，检查通过后合并到 `main` 即会更新网站。仓库可保持私有，部署后的网站仍可公开访问。
+
+部署接口依据：[Cloudflare GitHub Actions 文档](https://developers.cloudflare.com/workers/ci-cd/external-cicd/github-actions/)与[官方 Wrangler Action](https://github.com/cloudflare/wrangler-action)。
+
 已通过真实 API 验证当前影片的 5 条在线旁白，完整默认口述音轨已提前准备好，首次观看无需等待重新合成。浏览器中已核验在线音频播放、独立原片速度、样片定位和生成结果缓存。离线 HTML 与当前素材保持一致，使用本地备用音频，不需要也不包含密钥。
 
 协议依据：用户提供的 `TTS Websocket Bidirection protocols.zip`；火山引擎官方 V3 文档与真实响应事件。

@@ -2,6 +2,9 @@
   "name": "tingjian-audio-description",
   "main": "server/worker.mjs",
   "compatibility_date": "2026-09-01",
+  "vars": {
+    "VOLC_TTS_RESOURCE_ID": "seed-tts-2.0"
+  },
   "assets": {
     "directory": "./public",
     "binding": "ASSETS",
