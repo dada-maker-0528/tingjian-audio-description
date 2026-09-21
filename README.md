@@ -12,7 +12,7 @@ VOLC_TTS_RESOURCE_ID=seed-tts-2.0
 VOLC_TTS_SPEAKER=zh_female_vv_uranus_bigtts
 ```
 
-`.dev.vars` 已被忽略，不应提交或发给浏览器。线上密钥保存在 Sites 的秘密环境变量中。网站目前仅所有者可访问。
+`.dev.vars` 已被忽略，不应提交或发给浏览器。线上密钥保存在 Sites 的秘密环境变量中。网站的访问范围由 Sites 分享设置控制；当前按用户要求保持公开。
 
 ## 接入行为
 
@@ -26,7 +26,7 @@ VOLC_TTS_SPEAKER=zh_female_vv_uranus_bigtts
 
 ## 验证与发布
 
-`npm test` 检查提供的二进制协议、输入范围、跨站请求、密钥错误处理、旁白时长及视频分段响应。`npm run build` 生成 `dist/server/index.js` 与 `dist/client/`。发布使用已有 `.openai/hosting.json` 中的项目，保留私有访问。
+`npm test` 检查提供的二进制协议、输入范围、跨站请求、密钥错误处理、旁白时长及视频分段响应。`npm run build` 生成 `dist/server/index.js` 与 `dist/client/`。发布使用已有 `.openai/hosting.json` 中的项目，保持用户指定的访问范围。
 
 已通过真实 API 验证当前影片的 5 条在线旁白，完整默认口述音轨已提前准备好，首次观看无需等待重新合成。浏览器中已核验在线音频播放、独立原片速度、样片定位和生成结果缓存。离线 HTML 与当前素材保持一致，使用本地备用音频，不需要也不包含密钥。
 
