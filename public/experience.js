@@ -1,5 +1,7 @@
 import {icon,main,fillIcons,icons} from './app.js';
-import {defaults,newTask,migrateTaskToScenes,confirmStage,canComplete,proposeFeedback,applyFeedback,changeNarrationVoice,copySettings,newFullRevision,markFullRevisionReady,acceptFullRevision} from './flow.js';
+import {defaults,newTask,migrateTaskToScenes,confirmStage,canComplete,changeNarrationVoice,copySettings,markFullRevisionReady,acceptFullRevision} from './flow.js';
+import {NarrationAssistant} from './assistant/view.js';
+import {restoreStore} from './assistant/model.js';
 import {sceneRange,scenePreviewCount,sceneScopeLabel,sceneStageLabel} from './scene-plan.js';
 import {SpeechService} from './speech-service.js';
 import {films,defaultFilm,findFilm} from './catalog-config.js';
@@ -15,6 +17,7 @@ const $=s=>document.querySelector(s), esc=s=>String(s??'').replace(/[&<>"']/g,c=
 const time=n=>`${Math.floor(Math.max(0,n||0)/60).toString().padStart(2,'0')}:${Math.floor(Math.max(0,n||0)%60).toString().padStart(2,'0')}`;
 const KEY='tingjian-demo-v4';
 let stored={};try{stored=JSON.parse(localStorage.getItem(KEY)||localStorage.getItem('tingjian-demo-'+defaultFilm.id)||'{}')||{};}catch{}
+const assistantStore=restoreStore(stored.assistant);
 const validSettings=s=>s&&['normal','slow'].includes(s.speed)&&['balanced','concise'].includes(s.density)&&[0.88,1].includes(s.gain)&&isVoice(s.voice||DEFAULT_VOICE);
 let prefs={guide:true,reader:false,shortcuts:true,focusReadout:true,voice:DEFAULT_VOICE,...stored.prefs};
 if(!isVoice(prefs.voice))prefs.voice=DEFAULT_VOICE;
@@ -24,7 +27,7 @@ let task=stored.draft&&validSettings(stored.draft.candidate)&&findFilm(stored.dr
 if(task){task.assetId=task.assetId||defaultFilm.id;task.candidate={...defaults(),...task.candidate};if(task.confirmed)task.confirmed={...defaults(),...task.confirmed};task=migrateTaskToScenes(task,findFilm(task.assetId));}
 let revision=stored.revision&&stored.revision.stage==='full-review'&&!stored.revision.completed&&validSettings(stored.revision.candidate)&&findFilm(stored.revision.assetId)?stored.revision:null;
 if(revision){revision.candidate=copySettings(revision.candidate);revision.renderedVersion=null;}
-let chatTarget=null,pendingFeedback=null,regenerationBusy=false;
+let regenerationBusy=false;
 let route='home',watching=null,guideToken=0,runId=0,toastId,returnFocus=null,lastMessage='',currentGuide='home',previewUrl=null;
 const roleTour=new GuideSequence();
 const speech=new SpeechService();let guideAbort=null,guideResolver=null,mediaAbort=null,activeNarrationCues=null,currentAudioSource='local';
@@ -42,8 +45,8 @@ const playbackScope=()=>['short','medium'].includes(route)?sceneScopeLabel(film,
 const activeTask=()=>route==='full-review'?revision:task;
 const playerSettings=()=>route==='watch'?watching?.settings:activeTask()?.candidate;
 const guideContext=()=>({film,task:activeTask(),filmCount:films.length,libraryCount:library.length,shortcuts:prefs.shortcuts});
-const currentGuideText=(key=currentGuide)=>pageGuide(key,guideContext())||film?.guides?.[key]||'';
-function persist(){try{localStorage.setItem(KEY,JSON.stringify({prefs,library,draft:task,revision}));return true;}catch{announce('这台设备暂时无法保存数据，请释放浏览器存储后重试。');return false;}}
+const currentGuideText=(key=currentGuide)=>(pageGuide(key,guideContext())||film?.guides?.[key]||'')+(task?.assistantMockApproved&&['generating','full','complete'].includes(key)?' 新的标签修改为模拟方案，视频仍使用原有配音。':'');
+function persist(){try{localStorage.setItem(KEY,JSON.stringify({prefs,library,draft:task,revision,assistant:assistantStore}));return true;}catch{announce('这台设备暂时无法保存数据，请释放浏览器存储后重试。');return false;}}
 function announce(text){$('#status').textContent='';queueMicrotask(()=>$('#status').textContent=text);}
 function toast(text){clearTimeout(toastId);$('#toast').hidden=false;$('#toast').textContent=text;announce(text);toastId=setTimeout(()=>$('#toast').hidden=true,5000);}
 function focusTitle(){requestAnimationFrame(()=>{const h=main.querySelector('h1');if(h){h.tabIndex=-1;h.focus({preventScroll:true});}window.scrollTo({top:0,behavior:'instant'});});}
@@ -109,7 +112,7 @@ function repeatCurrentGuide(){
  return modal.open?say('dialog',modal.dataset.guideText,true):say(currentGuide,undefined,true);
 }
 const stageIndex=stage=>stage==='roles'?1:stage==='short'?2:stage==='medium'?3:4;
-function settingsHTML(settings,version,owner=task){return `<aside class="setting-card"><h3>这次的旁白设置</h3><div class="version">${owner?.stage==='full-review'?'完整视频版本':'场景版本'} ${version} · ${owner?.confirmed?.version===version?'已确认设置':'等待你试听确认'}</div><dl class="settings-summary"><div class="setting-item"><dt>旁白音色</dt><dd class="current-voice-name">${voiceInfo(settings.voice).label}</dd></div><div class="setting-item"><dt>旁白语速</dt><dd>${settings.speed==='slow'?'稍慢，更从容':'自然语速'}</dd></div><div class="setting-item"><dt>旁白音量</dt><dd>${settings.gain===1?'更清晰':'标准'}</dd></div><div class="setting-item"><dt>描述重点</dt><dd>${settings.density==='concise'?'关键画面，少说一点':'人物与关键动作'}</dd></div></dl><p class="footnote">设置只用于本次视频。<br>原片对白、音乐和播放速度保持不变。</p><button class="btn small" data-action="settings">${icon('volume')}切换音色</button><button class="btn small" data-action="chat">${icon('chat')}${owner?.stage==='full-review'?'修改并重新生成':'和 AI 说说问题'}</button></aside>`;}
+function settingsHTML(settings,version,owner=task){return `<aside class="setting-card"><h3>这次的旁白设置</h3><div class="version">${owner?.stage==='full-review'?'完整视频版本':'场景版本'} ${version} · ${owner?.confirmed?.version===version?'已确认设置':'等待你试听确认'}</div><dl class="settings-summary"><div class="setting-item"><dt>旁白音色</dt><dd class="current-voice-name">${voiceInfo(settings.voice).label}</dd></div><div class="setting-item"><dt>旁白语速</dt><dd>${settings.speed==='slow'?'稍慢，更从容':'自然语速'}</dd></div><div class="setting-item"><dt>旁白音量</dt><dd>${settings.gain===1?'更清晰':'标准'}</dd></div><div class="setting-item"><dt>描述重点</dt><dd>${settings.density==='concise'?'关键画面，少说一点':'人物与关键动作'}</dd></div></dl><p class="footnote">设置只用于本次视频。<br>原片对白、音乐和播放速度保持不变。</p>${owner?.assistantMockApproved?'<p class="assistant-approved-note">已确认标签修改方案；当前播放原有配音，方案保存在旁白助手中。</p>':''}<button class="btn small" data-action="settings">${icon('volume')}切换音色</button><button class="btn small" data-action="chat">${icon('chat')}${owner?.stage==='full-review'?'修改并重新生成':'和 AI 说说问题'}</button></aside>`;}
 function playerHTML(label){return `<div class="player-shell"><div class="video-wrap"><video id="film-player" preload="metadata" playsinline poster="${assetURL('assets/'+film.covers[0].file)}" aria-label="${esc(film.title)}，${esc(film.kind||'影片')}"></video><span class="video-label">${icon('headphones')}<span id="video-label-text">${label}</span></span><div class="play-overlay" id="play-overlay"><button data-action="play" aria-label="播放视频">${icon('play')}</button></div><div class="subtitle" id="subtitle" aria-hidden="true"></div></div><div class="scene-playback" id="scene-playback" aria-live="off"></div><div class="player-controls"><input type="range" id="seek" class="seek" min="0" max="${film.duration}" value="0" step="0.1" aria-label="视频播放进度"><div class="control-row"><button class="icon-btn" data-action="play" id="play-button" aria-label="播放">${icon('play')}</button><button class="icon-btn" data-action="back10" aria-label="后退 10 秒">${icon('back10')}</button><button class="icon-btn" data-action="forward10" aria-label="前进 10 秒">${icon('forward10')}</button><span class="time" id="player-time">00:00 / ${time(film.duration)}</span><span class="spacer"></span><button class="narration-toggle" data-action="narration" aria-pressed="true">${icon('headphones')}<span>旁白开启</span></button><button class="icon-btn" data-action="fullscreen" aria-label="全屏播放">${icon('fullscreen')}</button></div></div><div class="media-error" id="media-error" hidden></div></div>`;}
 function sceneOverview(count){
  const range=sceneRange(film,count),confirmed=task.confirmed?.version===task.version?task.confirmedSceneCount||0:0;
@@ -173,8 +176,8 @@ function saveFullRevision(){
  openWatch(item,false);toast('新版已保存，原版保留。');
 }
 function resumeRevision(){closeModal();stopAll();runId++;return renderFullRevision();}
-async function confirm(direction='full'){if(!task||['analyzing','generating','full'].includes(route)||(!playerReady&&route!=='roles'))return;stopAll();let next;try{next=confirmStage(task,direction);}catch(e){toast(e.message);return;}persist();if(next==='full'){if(!canComplete(task)){toast('请先确认当前版本的完整场景。');return;}processing('full','按已确认的效果，生成全部场景',['应用已确认的旁白设置','按顺序衔接全部场景','准备完整成片'],()=>{task.completed=true;task.stage='complete';persist();renderComplete();},4);}else{if(next==='medium')toast(`已确认前 ${task.confirmedSceneCount} 个场景的效果`);processing('generating',`正在准备${sceneScopeLabel(film,task.sceneCount)}`,['应用本次旁白设置','保留完整场景边界','准备连续场景播放'],renderSample,stageIndex(next));}}
-function renderComplete(){route='complete';page(shell(`<div class="stage-header"><div class="eyebrow">05 / 制作完成</div><h1>你的故事，现在可以听见了</h1><p>按照你确认的旁白设置，整段视频已准备好。</p></div><div class="complete-card"><img src="${assetURL('assets/'+film.covers[Math.min(2,film.covers.length-1)].file)}" alt="原片中站在一起的工友"><div><div class="success-line">${icon('check')}完整口述影像已就绪</div><h2>${esc(film.title)}</h2><p>${durationWords(film.duration)} · 中文原声与口述旁白<br>${task.candidate.speed==='slow'?'稍慢语速':'自然语速'} · ${task.candidate.density==='concise'?'简洁描述':'适中描述'}</p><button class="btn primary block" data-action="watch-new">${icon('play')}播放完整视频</button><button class="btn block" data-action="save" ${task.saved?'disabled':''}>${icon('save')}${task.saved?'已加入我的视频':'加入我的视频'}</button><button class="btn block" data-action="revise-full">${icon('chat')}修改并重新生成</button></div></div>`,4),'complete');}
+async function confirm(direction='full'){if(!task||regenerationBusy||assistant.busy||['analyzing','generating','full'].includes(route)||(!playerReady&&route!=='roles'))return;const session=assistantStore.sessions[task.id+':'+film.scenePlanVersion];if(session&&film.scenes.slice(0,scenePreviewCount(task)).some(s=>session.candidates[s.id])){toast('还有待确认的模拟方案，请先在旁白助手里确认或放弃新版。');return openChat();}stopAll();let next;try{next=confirmStage(task,direction);}catch(e){toast(e.message);return;}persist();if(next==='full'){if(!canComplete(task)){toast('请先确认当前版本的完整场景。');return;}processing('full','按已确认的效果，生成全部场景',['应用已确认的旁白设置','按顺序衔接全部场景','准备完整成片'],()=>{task.completed=true;task.stage='complete';persist();renderComplete();},4);}else{if(next==='medium')toast(`已确认前 ${task.confirmedSceneCount} 个场景的效果`);processing('generating',`正在准备${sceneScopeLabel(film,task.sceneCount)}`,['应用本次旁白设置','保留完整场景边界','准备连续场景播放'],renderSample,stageIndex(next));}}
+function renderComplete(){route='complete';page(shell(`<div class="stage-header"><div class="eyebrow">05 / 制作完成</div><h1>你的故事，现在可以听见了</h1><p>${task.assistantMockApproved?'整段视频已准备好。新的标签修改方案已保存；当前仍使用原有配音。':'按照你确认的旁白设置，整段视频已准备好。'}</p></div><div class="complete-card"><img src="${assetURL('assets/'+film.covers[Math.min(2,film.covers.length-1)].file)}" alt="原片中站在一起的工友"><div><div class="success-line">${icon('check')}完整口述影像已就绪</div><h2>${esc(film.title)}</h2><p>${durationWords(film.duration)} · 中文原声与口述旁白<br>${task.candidate.speed==='slow'?'稍慢语速':'自然语速'} · ${task.candidate.density==='concise'?'简洁描述':'适中描述'}</p><button class="btn primary block" data-action="watch-new">${icon('play')}播放完整视频</button><button class="btn block" data-action="save" ${task.saved?'disabled':''}>${icon('save')}${task.saved?'已加入我的视频':'加入我的视频'}</button><button class="btn block" data-action="revise-full">${icon('chat')}修改并重新生成</button></div></div>`,4),'complete');}
 async function openWatch(item,autoplay=true){stopAll();if(!selectFilm(item.assetId))return toast('这部影片暂时不可用。');watching=item;route='watch';const guided=page(`<div class="container watch-layout"><div class="back-row"><button class="text-btn" data-action="home">${icon('back')}返回我的视频</button><span class="task-name">真人影视片段 · 完整版</span></div><div class="watch-heading"><div><h1>${esc(item.title)}</h1><p>${esc(film.description)} · ${time(film.duration)}</p></div><button class="btn" data-action="save" ${library.some(x=>x.id===item.id)?'disabled':''}>${icon('save')}${library.some(x=>x.id===item.id)?'已加入我的视频':'加入我的视频'}</button></div>${playerHTML('完整视频 · 口述版')}<div class="action-bar"><div class="actions"><button class="btn small" data-action="replay">${icon('replay')}从头播放</button><button class="btn small" data-action="watch-roles">查看角色介绍</button>${hasNarration(film)?`<button class="btn small" data-action="revise-full">${icon('chat')}修改并重新生成</button>`:''}</div><button class="text-btn" data-action="caption">${icon('check')}口述字幕开启</button></div><details class="transcript"><summary>${icon('chevron')}查看口述旁白文本</summary><div id="transcript-text"></div></details><p class="inline-note">${icon('info')}${esc(film.credits)}</p></div>`,'watch');const ready=initPlayer(0,film.duration,item.settings,item.position<film.duration-2?item.position:0);const autoplaySequence=keyboardReader.sequence;await ready;await guided;if(autoplay&&keyboardReader.sequence===autoplaySequence&&route==='watch'&&watching===item&&!modal.open&&!chat.open)playMedia();}
 function saveFilm(){
  const source=route==='watch'?watching:task?.completed?{id:task.id,assetId:task.assetId,title:task.title,settings:task.confirmed,position:0}:null;
@@ -273,41 +276,41 @@ function editTarget(){
  if(task&&task.assetId===film.id&&['roles','short','medium'].includes(route))return {scope:'sample',source:task,owner:task,settings:copySettings(task.candidate),version:task.version,history:task.chat};
  return null;
 }
+let assistantHost=null;
+function sameAssistantHost(){return assistantHost&&route===assistantHost.route&&film.id===assistantHost.filmId;}
+function assistantNotice(text,failed=false){
+ $('#assistant-result-banner')?.remove();const host=main.querySelector('.sample-layout')||main.querySelector('.complete-card')||main.querySelector('.player-shell');if(!host)return;
+ host.insertAdjacentHTML('afterend',`<section class="assistant-result-banner" id="assistant-result-banner" aria-label="旁白修改结果"><div><strong>${failed?'修改未完成':'模拟修改方案已就绪'}</strong><p>${esc(text)}</p></div><button class="btn" data-action="assistant-result">${failed?'检查草稿并重试':'查看模拟结果'}</button></section>`);
+}
+function finishAssistantGeneration(){
+ $('#assistant-progress')?.remove();regenerationBusy=false;main.querySelectorAll('[data-scene-confirm]').forEach(b=>b.disabled=!playerReady);
+}
+const assistant=new NarrationAssistant(chat,{
+ store:assistantStore,save:persist,stop:stopAll,announce:toast,say,
+ onStart(context){assistantHost={route,filmId:film.id};regenerationBusy=true;pauseMedia();$('#assistant-result-banner')?.remove();main.querySelectorAll('[data-scene-confirm]').forEach(b=>b.disabled=true);const host=main.querySelector('.video-wrap')||main.querySelector('.complete-card');host?.insertAdjacentHTML('beforeend',`<div class="regeneration-overlay" id="assistant-progress" role="status"><span class="regeneration-spinner" aria-hidden="true"></span><strong>正在应用修改指令</strong><p>${esc(context.scene.title)} · 准备文案与参数预览</p></div>`);announce('已确认执行，正在准备模拟结果。');},
+ onResult(context){if(!sameAssistantHost())return;finishAssistantGeneration();assistantNotice('本次为文案与参数预览，尚未生成新配音。原片和原有旁白保留。');toast('模拟修改方案已就绪，请查看结果，再决定是否满意。');},
+ onFailure(context,error){if(!sameAssistantHost())return;finishAssistantGeneration();assistantNotice(error.message,true);toast(error.message);},
+ onDiscard(){if(sameAssistantHost())$('#assistant-result-banner')?.remove();toast('未接受的方案已放弃，原有视频保留。');},
+ reviewOriginal(context){pauseMedia();if(playerReady&&context.scene.start>=clipStart&&context.scene.start<clipEnd){seekTo(context.scene.start);toast('已定位到同一原片场景，当前播放原有音轨。');}else toast('这个场景不在当前试听范围内，请在完整视频中查看。');},
+ onAccepted(context,session,candidates){
+  if(!sameAssistantHost()&&assistantHost)return;$('#assistant-result-banner')?.remove();
+  if(task&&session.taskId===task.id){task.assistantSessionId=session.taskId+':'+film.scenePlanVersion;task.assistantMockApproved=true;persist();}
+  if(['short','medium'].includes(route)&&task?.id===session.taskId){
+   const covered=film.scenes.slice(0,scenePreviewCount(task)).map(s=>s.id);
+   if(candidates.every(c=>covered.includes(c.sceneId))&&playerReady){confirm();return;}
+   toast('方案已保存。请先确认当前试听范围，再继续下一阶段。');
+  }else toast('修改方案已保存，原有视频与配音保留。');
+ }
+});
 function openChat(){
- if(regenerationBusy)return toast('正在生成新版，请等准备好后再修改。');
+ if(regenerationBusy||assistant.busy)return toast('正在执行这次修改，请等结果准备好。');
  const target=editTarget();if(!target)return toast('这部影片暂时没有可调整的旁白。');
- stopAll();pendingFeedback=null;chatTarget={...target,route,filmId:film.id};returnFocus=document.activeElement;
- chat.innerHTML=`<div class="chat-inner"><div class="dialog-heading"><h2 id="chat-title">${target.scope==='full'?'修改完整视频':'和 AI 说说问题'}</h2><button class="icon-btn" data-action="close-chat" aria-label="关闭对话">${icon('close')}</button></div><div class="chat-context">正在修改：${target.scope==='full'?'完整视频':stageTitle(task)}<br>当前视频：${esc(film.title)} · 版本 ${target.version}</div><div class="chat-log" id="chat-log"></div><div class="suggestions"><button data-action="feedback" data-text="旁白慢一点">旁白慢一点</button><button data-action="feedback" data-text="旁白大声一点">旁白大声一点</button><button data-action="feedback" data-text="描述少一点">描述少一点</button></div><form class="chat-form" id="chat-form"><label class="sr-only" for="feedback-text">你的修改意见</label><textarea id="feedback-text" placeholder="告诉我，哪里听起来不太合适…"></textarea><div class="dialog-actions"><button type="button" class="btn" data-action="simulate-voice">${icon('mic')}模拟语音输入</button><button type="submit" class="btn primary">发送 ${icon('arrow')}</button></div><p class="chat-note">可以调整旁白语速、音量和描述量。确认修改后，对话会收起并生成新版。语音输入和意见理解仍为预设演示。</p></form></div>`;
- drawChat();chat.showModal();$('#chat-form').addEventListener('submit',e=>{e.preventDefault();const text=$('#feedback-text').value.trim();if(text)feedback(text);});
- $('#feedback-text').addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey&&!e.isComposing){e.preventDefault();$('#chat-form').requestSubmit();}});
- say('chat',`当前是${target.scope==='full'?'完整视频':'当前片段'}修改对话。请描述问题，按回车发送；我会先列出修改建议，选择“确认修改并重新生成”后返回播放器。按 Esc 可取消。`);
+ if(route==='roles')return toast('请先继续到首个场景，再调整旁白。');
+ const at=player?.currentTime||0,scene=film.scenes.find(s=>at>=s.start&&at<s.end)||film.scenes[0];
+ assistantHost={route,filmId:film.id};
+ assistant.open({film,taskId:target.source.id,settings:target.settings,sceneId:scene.id,playhead:at,phase:route,canContinue:['short','medium'].includes(route)});
 }
-function drawChat(){
- const log=$('#chat-log');if(!log||!chatTarget)return;
- log.innerHTML=`<div class="chat-bubble"><div class="chat-who">听见 AI · 演示</div>${chatTarget.scope==='full'?'完整视频也可以继续调整，原版会保留。':'哪里听起来还不够合适？'}<br>先确认修改建议，再生成新版。</div>${chatTarget.history.map(m=>`<div class="chat-bubble ${m.who==='user'?'user':''}"><div class="chat-who">${m.who==='user'?'你':'听见 AI · 演示'}</div>${esc(m.text)}</div>`).join('')}${pendingFeedback?`<div class="feedback-proposal"><strong>本次修改</strong><p>${esc(pendingFeedback.proposal.changes.join('；'))}</p><p>${chatTarget.scope==='full'?'生成完整视频新版，试听满意后再保存。':'重新生成当前片段，试听满意后再继续。'}</p><button class="btn primary block" id="confirm-feedback" data-action="confirm-feedback">确认修改并重新生成</button></div>`:''}`;
- log.scrollTop=log.scrollHeight;
-}
-function closeChat(restoreFocus=true){if(!chat.open)return;stopGuide();chat.close();pendingFeedback=null;chatTarget=null;if(restoreFocus&&returnFocus?.isConnected)returnFocus.focus();}
-function feedback(text){
- if(!chat.open||!chatTarget)return;pendingFeedback=null;const target=chatTarget;
- target.history.push({who:'user',text});
- const proposal=target.scope==='sample'&&!['short','medium'].includes(target.owner.stage)?{ok:false,message:'当前人物介绍使用预设内容。进入试听后，可以调整旁白的语速、音量和描述量。'}:proposeFeedback(target.settings,text);
- target.history.push({who:'ai',text:proposal.message});
- if(proposal.ok)pendingFeedback={proposal,text,version:target.owner?.version||target.version};
- drawChat();$('#feedback-text').value='';persist();announce(proposal.message);
- if(proposal.ok)$('#confirm-feedback')?.focus();say('feedback-proposal',proposal.message);
-}
-function confirmFeedback(){
- if(!chat.open||!chatTarget||!pendingFeedback)return;
- const target=chatTarget,pending=pendingFeedback;
- if(target.filmId!==film.id||target.route!==route||target.owner&&target.owner.version!==pending.version){pendingFeedback=null;drawChat();return toast('当前设置已变化，请重新提出修改意见。');}
- if(target.scope==='sample'){
-  if(target.owner!==task)return;const result=applyFeedback(task,pending.text);if(!result.ok)return toast(result.message);
- }else revision=newFullRevision(target.source,film,pending.proposal.settings,target.history);
- pendingFeedback=null;closeChat(false);runId++;persist();
- const introPrefix='已确认：'+pending.proposal.changes.join('，')+'。';
- if(target.scope==='full')renderFullRevision({introPrefix});else renderSample({introPrefix,regenerating:true});
-}
+function closeChat(){if(chat.open)assistant.close();}
 function viewStage(n){if(route==='upload'||!task)return;const active=stageIndex(task.stage);if(n>=active)return;if(n===0){showModal('本次视频',`<div class="source-top"><img src="${assetURL('assets/'+film.covers[0].file)}" alt="${esc(film.title)}的封面"><div><h3>${esc(film.title)}</h3><p>${time(film.duration)} · 内置演示视频</p></div></div><p class="dialog-copy">当前制作继续使用这段素材。人物介绍、样片和完整影片均来自同一视频。</p><div class="dialog-actions"><button class="btn primary" data-action="close-modal">返回当前步骤</button></div>`);}else if(n===1){showRoleReview('回看角色介绍');}else{showModal('已确认的试听阶段',`<p class="dialog-copy">${n===2?'第一个场景':'前面连续场景'}的试听已经完成。当前正在「${stageTitle(task)}」。继续试听当前版本，就可以沿着这次制作往下走。</p><div class="dialog-actions"><button class="btn primary" data-action="close-modal">返回当前步骤</button></div>`);}}
 function handleAction(action,b){
  switch(action){
@@ -341,12 +344,10 @@ function handleAction(action,b){
  case 'watch-roles':showRoleReview();break;
  case 'chat':openChat();break;
  case 'revise-full':openChat();break;
- case 'confirm-feedback':confirmFeedback();break;
+ case 'assistant-result':assistant.showResult();break;
  case 'save-revision':saveFullRevision();break;
  case 'revision-original':if(revision?.sourceSnapshot)openWatch(revision.sourceSnapshot,false);break;
  case 'close-chat':closeChat();break;
- case 'feedback':feedback(b.dataset.text);break;
- case 'simulate-voice':$('#feedback-text').value='旁白慢一点';$('#feedback-text').focus();announce('已模拟填入：旁白慢一点。点击发送，提交这条意见。');break;
  case 'settings':showSettings();break;
  case 'preview-voice':previewVoice();break;
  case 'preview-prompt-rate':previewPromptRate(b.dataset.channel);break;

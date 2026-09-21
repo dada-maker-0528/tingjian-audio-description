@@ -9,6 +9,7 @@ export function focusLabel(element){
  const tag=element.tagName.toLowerCase(),role=element.getAttribute('role'),type=element.getAttribute('type');
  if(tag==='select')return `${label}，${element.selectedOptions?.[0]?.textContent||'未选择'}。`;
  if(role==='switch'||type==='checkbox')return `${label}，${element.getAttribute('aria-checked')==='true'||element.checked?'已开启':'已关闭'}。`;
+ if(type==='radio')return `${label}，${element.checked?'已选中':'未选中'}。`;
  if(type==='range'||role==='slider')return `${label}，${element.getAttribute('aria-valuetext')||element.value||''}。`;
  return label;
 }
@@ -18,7 +19,7 @@ export class FocusReader{
   document.addEventListener('keydown',e=>{if(e.key==='Tab'&&!e.isComposing&&!e.ctrlKey&&!e.metaKey&&!e.altKey){this.keyboard=true;this.stop();}},true);
   document.addEventListener('pointerdown',()=>{this.keyboard=false;this.stop();},true);
   document.addEventListener('focusin',e=>{const el=e.target.closest?.(CONTROLS);if(this.keyboard&&el&&this.enabled())this.read(el);},true);
-  document.addEventListener('change',e=>{if(this.keyboard&&e.target===document.activeElement&&e.target.matches('select,[role="switch"],input[type="checkbox"],input[type="range"]')&&this.enabled())this.read(e.target);});
+  document.addEventListener('change',e=>{if(this.keyboard&&e.target===document.activeElement&&e.target.matches('select,[role="switch"],input[type="checkbox"],input[type="radio"],input[type="range"]')&&this.enabled())this.read(e.target);});
  }
  stop(){this.sequence++;clearTimeout(this.timer);if(this.activeUtterance){window.speechSynthesis?.cancel();this.activeUtterance=null;}if(this.status)this.status.dataset.state='idle';}
  read(el){
