@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {assistantKeyAction,shouldAutoSpeak,spokenChanges} from '../public/assistant/speech-policy.js';
+import {assistantKeyAction,shouldAutoSpeak,spokenChanges,automaticMessage} from '../public/assistant/speech-policy.js';
 import {VoiceInput} from '../public/assistant/voice-input.js';
 test('O starts only outside editable text, while Enter submits text without bypassing IME or newlines',()=>{
  const key=(key,extra={})=>({key,...extra});
@@ -12,11 +12,23 @@ test('O starts only outside editable text, while Enter submits text without bypa
  assert.equal(assistantKeyAction(key('o'),{recording:true,editable:true}),'finish');
 });
 test('speech policy reads essential transitions once, never typed text, progress or technical prompts',()=>{
- for(const event of ['ready','clarify','error','result','scene','voice-ended'])assert(shouldAutoSpeak(event));
- for(const event of ['typing','interim','progress','field','history','full-prompt','parsing'])assert(!shouldAutoSpeak(event));
+ for(const event of ['ready','clarify','error','result','voice-ended','voice-error','answer'])assert(shouldAutoSpeak(event));
+ for(const event of ['enter','scene','mode','category','running','accepted','typing','interim','progress','field','history','full-prompt','parsing'])assert(!shouldAutoSpeak(event));
  assert(!shouldAutoSpeak('ready',{reader:true}));assert(!shouldAutoSpeak('ready',{guide:false}));assert(!shouldAutoSpeak('ready',{recording:true}));
  const text=spokenChanges({changes:[{field:'speech_rate',value:.85},{field:'narration_gain_db',value:3}],scope:'current',targets:[{title:'城市骑行'}]});
  assert.match(text,/0.85/);assert.match(text,/3 分贝/);assert(!text.includes('speech_rate'));assert.match(text,/确认执行/);
+});
+test('automatic notices are brief and never recite the change list or dictated text',()=>{
+ const details='把旁白改成0.85倍、提高3分贝，动作讲得更详细，并应用到后续场景。';
+ assert(automaticMessage('ready',details).length<22);assert(!automaticMessage('ready',details).includes('0.85'));
+ assert.match(automaticMessage('result'),/模拟/);assert(automaticMessage('result').length<22);
+ assert.equal(automaticMessage('running','正在执行修改指令，助手保持展开。'),'');
+ assert.equal(automaticMessage('voice-ended','识别已结束，正在发送文字。'),'');
+ assert.equal(automaticMessage('voice-ended','已停止语音输入，文字已保留。'),'');
+ assert(!automaticMessage('voice-ended','语音输入结束。已输入：我的私人修改意见。按回车发送。').includes('私人修改意见'));
+ assert.equal(automaticMessage('clarify','你说的是哪位人物？请选择后我会继续。'),'你说的是哪位人物？');
+ assert.equal(automaticMessage('voice-error','未获得麦克风权限。请打开系统设置后重试。'),'未获得麦克风权限。');
+ assert.equal(automaticMessage('answer','青年骑车，女孩坐在他身前。'),'青年骑车，女孩坐在他身前。');
 });
 function rig(extra={}){
  const created=[],states=[],texts=[],sent=[],events=[];

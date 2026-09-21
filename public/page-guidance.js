@@ -3,12 +3,12 @@ const number=n=>names[n]||String(n);
 export const stepNames={upload:'第一步，选择视频',analyzing:'第一步，正在整理视频',roles:'第二步，认识人物',short:'第三步，确认第一个场景',medium:'第四步，确认连续场景',full:'第五步，制作完整视频',complete:'第五步，制作完成'};
 const navigation='按 Tab 选择下一个操作，按 Shift 加 Tab 返回上一个操作。';
 export function roleChoices(roles,{shortcuts=true,review=false,completed=true}={}){
- const done=completed?'人物介绍已结束。':'';
- const replay=shortcuts&&roles.length?roles.slice(0,9).map((r,i)=>`按数字 ${i+1} 再听${r.name}`).join('，')+'。':'可以按 Tab 选择想再听的人物。';
- return done+(review?'你想再听哪位人物，还是返回当前页面？':'你想继续下一步，还是再听哪位人物的介绍？')+replay+(review?'选择返回，或按空格、Esc 关闭介绍。':'选择“继续到首个场景”，或按空格继续，进入第三步试听第一个完整场景。');
+ const done=completed?'人物介绍结束。':'',count=Math.min(roles.length,9);
+ const replay=shortcuts&&count?`数字 ${count===1?'1':'1 至 '+count} 再听，`:'可选择人物再听，';
+ return done+(review?'再听还是返回？':'继续还是再听？')+replay+(review?'空格返回。':'空格继续。');
 }
 export function roleIntroduction(roles,{review=false,sceneCount=0}={}){
- return (review?'当前是人物介绍。':'当前是第二步，认识人物。')+(!review&&sceneCount?`这段影片已按原片顺序整理为 ${sceneCount} 个场景。`:'')+`已为你整理出${number(roles.length)}位人物，下面按顺序介绍。`;
+ return (review?'人物介绍。':'第二步，认识人物。')+`共${number(roles.length)}位人物。`;
 }
 export function roleDescription(film,index){
  const role=film.roles?.[index];if(!role)return '';
@@ -42,6 +42,23 @@ export function pageGuide(key,{film={},task,libraryCount=0,filmCount=0,shortcuts
   case 'watch':return `当前是完整观看页面，影片《${film.title||'当前影片'}》。按空格播放或暂停，也可再听角色介绍。${film.narration?'右侧旁白助手保持展开。'+(shortcuts?'在非输入区域按字母 O 开始语音输入，':'选择语音输入开始说话，')+'按回车结束识别并发送。发送后先检查修改指令，再确认执行。':''}可以返回我的视频。${navigation}`;
   case 'full-review':return `当前是完整视频复看，正在准备第 ${task?.version||1} 版。准备好后按空格试听；满意后保存新版，也可以继续修改。原版会保留。`;
   case 'chat':return `当前是旁白助手，正在修改${stepNames[task?.stage]||'当前步骤'}。侧栏保持展开。按 O 开始语音输入，按回车结束识别并发送。输入框内可直接修改文字，Shift 加回车换行。确认执行和满意并继续是两个独立操作。按 Esc 停止语音输入或播报。`;
+  default:return '';
+ }
+}
+export function briefPageGuide(key,{film={},task,libraryCount=0}={}){
+ switch(key){
+  case 'home':return '首页，视频库。';
+  case 'library':return `我的视频，共 ${libraryCount} 部。`;
+  case 'upload':return '第一步，选择视频。';
+  case 'roles':return roleIntroduction(film.roles||[]);
+  case 'roles-end':return roleChoices(film.roles||[]);
+  case 'short':return '第三步，首个场景试听。';
+  case 'medium':return `第四步，试听前 ${task?.sceneCount||3} 个场景。`;
+  case 'complete':return '第五步，整片已就绪。';
+  case 'watch':return '完整观看。';
+  case 'full-review':return '第五步，复看新版。';
+  case 'chat':return '旁白助手。';
+  case 'saved':return '已保存到我的视频。';
   default:return '';
  }
 }

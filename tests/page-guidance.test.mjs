@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {GuideSequence,roleTourSteps,roleKeyAction,pageGuide,roleChoices} from '../public/page-guidance.js';
+import {GuideSequence,roleTourSteps,roleKeyAction,pageGuide,briefPageGuide,roleChoices} from '../public/page-guidance.js';
 import {rateForGuide} from '../public/prompt-speech.js';
 import {sceneFilm} from './fixtures/scene-film.mjs';
 const film={...sceneFilm,roles:[{name:'甲',detail:'第一人的特征'},{name:'乙',detail:'第二人的特征'},{name:'丙',detail:'第三人的特征'}]};
@@ -10,9 +10,18 @@ test('character tour introduces the count, each person, then offers valid replay
  assert.deepEqual(steps.map(s=>s.key),['roles','role-0','role-1','role-2','roles-end']);
  assert.match(steps[0].text,/第二步.*三位人物/);
  assert.match(steps[1].text,/第一位，甲/);assert.match(steps[2].text,/第二位，乙/);assert.match(steps[3].text,/第三位，丙/);
- for(const n of [1,2,3])assert.match(steps[4].text,new RegExp('数字 '+n));
+ assert.match(steps[4].text,/数字 1 至 3/);
  assert.doesNotMatch(steps[4].text,/数字 4/);assert.match(steps[4].text,/空格继续/);
  assert.deepEqual(steps.map(s=>rateForGuide(s.key,{guide:2,role:4})),[2,4,4,4,2]);
+});
+test('automatic page introductions are short; full instructions stay available on request',()=>{
+ for(const key of ['home','library','upload','short','medium','complete','watch','full-review']){
+  const brief=briefPageGuide(key,{film,task:{stage:'medium',sceneCount:3},libraryCount:4});
+  assert(brief.length>0&&brief.length<=45,key);assert.doesNotMatch(brief,/Shift|Tab|O 开始|确认执行和|保持展开/);
+ }
+ for(const key of ['analyzing','generating','full'])assert.equal(briefPageGuide(key,{film}),'');
+ assert.match(pageGuide('watch',{film}),/Tab/);
+ assert(roleChoices(film.roles).length<55);
 });
 test('single replay reads only the requested person then reoffers next actions',()=>{
  assert.deepEqual(roleTourSteps(film,{index:1}).map(s=>s.key),['role-1','roles-end']);

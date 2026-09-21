@@ -9,7 +9,7 @@ import {films,defaultFilm,findFilm} from './catalog-config.js';
 import {DEFAULT_VOICE,VOICES,isVoice,voiceInfo} from './voices.js';
 import {FocusReader} from './focus-reader.js';
 import {PROMPT_CHANNELS,promptRates,rateForGuide,setChannelRate,promptRateLabel,promptText,promptUtterance,applyPromptAudioRate} from './prompt-speech.js';
-import {GuideSequence,pageGuide,roleIntroduction,roleChoices,roleTourSteps,roleKeyAction} from './page-guidance.js';
+import {GuideSequence,pageGuide,briefPageGuide,roleIntroduction,roleChoices,roleTourSteps,roleKeyAction} from './page-guidance.js';
 import {mergePublicLibrary,visibleLibrary,hasNarration} from './library.js';
 let film=defaultFilm;
 import {assetURL} from './asset-url.js';
@@ -29,7 +29,7 @@ if(task){task.assetId=task.assetId||defaultFilm.id;task.candidate={...defaults()
 let revision=stored.revision&&stored.revision.stage==='full-review'&&!stored.revision.completed&&validSettings(stored.revision.candidate)&&findFilm(stored.revision.assetId)?stored.revision:null;
 if(revision){revision.candidate=copySettings(revision.candidate);revision.renderedVersion=null;}
 let regenerationBusy=false;
-let route='home',watching=null,guideToken=0,runId=0,toastId,returnFocus=null,lastMessage='',currentGuide='home',previewUrl=null;
+let route='home',watching=null,guideToken=0,runId=0,toastId,returnFocus=null,lastMessage='',currentGuide='home',previewUrl=null,guideDetailPrefix='',lastAutoPage='';
 const roleTour=new GuideSequence();
 const speech=new SpeechService();let guideAbort=null,guideResolver=null,mediaAbort=null,activeNarrationCues=null,currentAudioSource='local';
 const liveSpeech=()=>speech.available&&prefs.ttsMode!=='local';
@@ -46,7 +46,10 @@ const playbackScope=()=>['short','medium'].includes(route)?sceneScopeLabel(film,
 const activeTask=()=>route==='full-review'?revision:task;
 const playerSettings=()=>route==='watch'?watching?.settings:activeTask()?.candidate;
 const guideContext=()=>({film,task:activeTask(),filmCount:films.length,libraryCount:library.length,shortcuts:prefs.shortcuts});
-const currentGuideText=(key=currentGuide)=>(pageGuide(key,guideContext())||film?.guides?.[key]||'')+(task?.assistantMockApproved&&['generating','full','complete'].includes(key)?' 新的标签修改为模拟方案，视频仍使用原有配音。':'');
+const currentGuideText=(key=currentGuide,{detailed=false}={})=>{
+ const words=detailed?(pageGuide(key,guideContext())||film?.guides?.[key]||''):briefPageGuide(key,guideContext());
+ return words+(task?.assistantMockApproved&&key==='complete'?' 修改方案为模拟结果。':'');
+};
 function persist(){try{localStorage.setItem(KEY,JSON.stringify({prefs,library,draft:task,revision,assistant:assistantStore}));return true;}catch{announce('这台设备暂时无法保存数据，请释放浏览器存储后重试。');return false;}}
 function announce(text){$('#status').textContent='';queueMicrotask(()=>$('#status').textContent=text);}
 function toast(text,{live=true}={}){clearTimeout(toastId);$('#toast').hidden=false;$('#toast').textContent=text;if(live)announce(text);toastId=setTimeout(()=>$('#toast').hidden=true,5000);}
@@ -74,7 +77,14 @@ async function say(key,text,force=false,{sequence=false}={}){
  return new Promise(resolve=>{guideResolver=resolve;const finish=ok=>{if(guideResolver===resolve)guideResolver=null;resolve(ok&&token===guideToken);};const utterance=promptUtterance(words,rate);utterance.onend=()=>finish(true);utterance.onerror=()=>finish(false);window.speechSynthesis.speak(utterance);});
 }
 function clearPlayer(){mediaAbort?.abort();mediaAbort=null;activeNarrationCues=null;mediaGeneration++;regenerationBusy=false;pauseMedia();if(player){player.removeAttribute('src');player.load();player=null;}narration.removeAttribute('src');narration.load();playerReady=false;}
-function page(html,guideKey,focus=true,options={}){assistant.hide();stopAll();clearPlayer();main.innerHTML=html;const heading=main.querySelector('h1');if(heading)heading.tabIndex=-1;fillIcons();$('.main-nav [data-action="home"]').classList.toggle('active',route==='home');$('.main-nav [data-action="library"]').classList.toggle('active',route==='library');currentGuide=guideKey||route;if(focus)focusTitle();updateGuideUI();mountAssistant();const words=(options.introPrefix||'')+currentGuideText();announce(words);return options.guide===false?Promise.resolve(false):say(currentGuide,words);}
+function page(html,guideKey,focus=true,options={}){
+ assistant.hide();stopAll();clearPlayer();main.innerHTML=html;const heading=main.querySelector('h1');if(heading)heading.tabIndex=-1;fillIcons();
+ $('.main-nav [data-action="home"]').classList.toggle('active',route==='home');$('.main-nav [data-action="library"]').classList.toggle('active',route==='library');
+ currentGuide=guideKey||route;guideDetailPrefix=options.introPrefix||'';if(focus)focusTitle();updateGuideUI();mountAssistant();
+ const pageKey=[currentGuide,film.id,['short','medium'].includes(route)?task?.sceneCount:'',route==='watch'?watching?.id:''].join(':');
+ const words=currentGuideText(),speak=options.guide!==false&&pageKey!==lastAutoPage;lastAutoPage=pageKey;announce(words);
+ return speak?say(currentGuide,words):Promise.resolve(false);
+}
 function goHome(isLibrary=false){runId++;stopAll();route=isLibrary?'library':'home';renderHome();}
 function homeIntro(){return `<div class="guide-banner"><span class="icon-circle">${icon('headphones')}</span><div><strong>${prefs.guide?'语音引导已开启，随时听取操作提示':'让声音陪你完成每一步'}</strong><p>${prefs.reader?'读屏优先已开启，站内语音保持安静。':'Tab 前进，Shift + Tab 后退；在语音设置里调整提示语速。'}</p></div><button class="text-btn" data-action="${prefs.guide?'repeat-guide':'enable-guide'}">${prefs.guide?'再听提示':'开启语音引导'} ${icon('arrow')}</button></div>`;}
 function filmCard(item,i,featured){const media=findFilm(item.assetId);if(!media)return '';const pos=item.position>1&&item.position<media.duration-2?item.position:0;const cover=media.covers[i%media.covers.length];return `<article class="film-card ${featured?'featured':''}"><div class="film-cover"><img src="${assetURL('assets/'+cover.file)}" alt="${esc(cover.alt)}" loading="${i?'lazy':'eager'}"><span class="corner-tag">${icon('headphones')}${hasNarration(media)?'中文口述影像':'原片'}</span><span class="duration">${time(media.duration)}</span></div><div class="film-info"><div class="film-meta"><span class="index">${i+1}</span>${item.public?'公开视频':'本机口述版本'} · ${esc(media.kind||'影视片段')}</div><h3>${esc(item.title)}</h3><p>${esc(media.shortDescription||media.description||'')}</p><span class="status-label">${icon('check')}${pos?'已听到 '+time(pos):hasNarration(media)?'已添加口述影像':'原声视频'}</span><button class="btn primary" data-action="watch" data-id="${esc(item.id)}" data-focus-label="${pos?'继续播放':'播放'}《${esc(item.title)}》" aria-label="${pos?'继续播放':'播放'}《${esc(item.title)}》，${durationWords(media.duration)}">${icon('play')}${pos?'继续播放':'播放视频'}</button></div></article>`;}
@@ -109,9 +119,10 @@ async function playRoles({index,review=roleReviewOpen()}={}){
  return result;
 }
 function repeatCurrentGuide(){
- if(prefs.reader)return announce(currentGuideText()+(route==='roles'?roleChoices(roles,{shortcuts:prefs.shortcuts,completed:false}):''));
+ const detail=modal.open?modal.dataset.guideText:guideDetailPrefix+currentGuideText(currentGuide,{detailed:true});
+ if(prefs.reader)return announce(detail+(route==='roles'?roleChoices(roles,{shortcuts:prefs.shortcuts,completed:false}):''));
  if(roleReviewOpen()||route==='roles'&&!modal.open&&!chat.open)return playRoles();
- return modal.open?say('dialog',modal.dataset.guideText,true):say(currentGuide,undefined,true);
+ return say(modal.open?'dialog':currentGuide,detail,true);
 }
 const stageIndex=stage=>stage==='roles'?1:stage==='short'?2:stage==='medium'?3:4;
 function settingsHTML(settings,version,owner=task){return `<aside class="setting-card"><h3>这次的旁白设置</h3><div class="version">${owner?.stage==='full-review'?'完整视频版本':'场景版本'} ${version} · ${owner?.confirmed?.version===version?'已确认设置':'等待你试听确认'}</div><dl class="settings-summary"><div class="setting-item"><dt>旁白音色</dt><dd class="current-voice-name">${voiceInfo(settings.voice).label}</dd></div><div class="setting-item"><dt>旁白语速</dt><dd>${settings.speed==='slow'?'稍慢，更从容':'自然语速'}</dd></div><div class="setting-item"><dt>旁白音量</dt><dd>${settings.gain===1?'更清晰':'标准'}</dd></div><div class="setting-item"><dt>描述重点</dt><dd>${settings.density==='concise'?'关键画面，少说一点':'人物与关键动作'}</dd></div></dl><p class="footnote">设置只用于本次视频。<br>原片对白、音乐和播放速度保持不变。</p>${owner?.assistantMockApproved?'<p class="assistant-approved-note">已确认标签修改方案；当前播放原有配音，方案保存在旁白助手中。</p>':''}<button class="btn small" data-action="settings">${icon('volume')}切换音色</button><button class="btn small" data-action="chat">${icon('chat')}${owner?.stage==='full-review'?'修改并重新生成':'和 AI 说说问题'}</button></aside>`;}
@@ -155,7 +166,7 @@ async function settleRegeneration(ready,entrance,{current,version,regenerating,f
   persist();
  }
  if(regenerating&&ok){
-  const words=`第 ${version} 版${full?'完整视频':playbackScope()}已准备好。按空格试听，${full?'满意后选择“满意，保存新版”，也可以继续修改。':'满意后继续，也可以再次修改。'}`;
+  const words=full?'新版已就绪，请试听。':'场景已就绪，请试听。';
   announce(words);await entrance;
   if(current()&&guideToken===speechVersion&&!playing&&!modal.open&&!chat.open)say('regeneration-ready',words);
  }
@@ -235,7 +246,7 @@ function updateProgress(){if(!player)return;const at=player.currentTime;const el
 function seekTo(at){if(!playerReady)return;const keep=playing;player.currentTime=Math.max(clipStart,Math.min(clipEnd-.001,at));if(narration.src)narration.currentTime=player.currentTime;updateProgress();if(keep&&player.currentTime<clipEnd&&!playing)playMedia();}
 function replay(){if(!playerReady)return;pauseMedia();seekTo(clipStart);playMedia();}
 function toggleNarration(){narrationOn=!narrationOn;const b=$('[data-action="narration"]');b.setAttribute('aria-pressed',String(narrationOn));b.innerHTML=icon('headphones')+`<span>${narrationOn?'旁白开启':'原片声音'}</span>`;$('#video-label-text').textContent=narrationOn?(route==='watch'?`完整视频 · ${currentAudioSource==='volcengine'?'豆包合成旁白':'本地演示旁白'}`:`${playbackScope()} · ${currentAudioSource==='volcengine'?'豆包合成旁白':'本地演示旁白'}`):'原片 · 口述旁白已关闭';if(!narrationOn)narration.pause();else if(playing){narration.currentTime=player.currentTime;narration.play().catch(mediaError);}updateProgress();announce(narrationOn?'口述旁白已开启':'口述旁白已关闭，正在播放原片声音');}
-function showModal(title,content,options={}){stopAll();returnFocus=document.activeElement;modal.dataset.kind=options.kind||'';modal.innerHTML=`<div class="dialog-heading"><h2 id="modal-title">${title}</h2><button class="icon-btn" data-action="close-modal" aria-label="关闭弹窗">${icon('close')}</button></div>${content}`;modal.showModal();const detail=modal.querySelector('.dialog-copy')?.textContent||'';modal.dataset.guideText=`当前打开${title}。${detail}按 Tab 选择操作，按 Shift 加 Tab 返回上一个操作，按 Esc 关闭。`;if(options.guide!==false)say('dialog',modal.dataset.guideText);}
+function showModal(title,content,options={}){stopAll();returnFocus=document.activeElement;modal.dataset.kind=options.kind||'';modal.innerHTML=`<div class="dialog-heading"><h2 id="modal-title">${title}</h2><button class="icon-btn" data-action="close-modal" aria-label="关闭弹窗">${icon('close')}</button></div>${content}`;modal.showModal();const detail=modal.querySelector('.dialog-copy')?.textContent||'';modal.dataset.guideText=`当前打开${title}。${detail}按 Tab 选择操作，按 Shift 加 Tab 返回上一个操作，按 Esc 关闭。`;if(options.guide!==false)say('dialog',title+(/[。！？?]$/.test(title)?'':'。'));}
 function closeModal(){if(!modal.open)return;stopGuide();modal.close();if(returnFocus?.isConnected)returnFocus.focus();}
 function showRoleReview(title='故事里的主要人物'){
  showModal(title,rolesHTML()+`<p class="dialog-copy">${esc(roleChoices(roles,{shortcuts:prefs.shortcuts,review:true,completed:false}))}</p><div class="dialog-actions"><button class="btn primary" data-action="close-modal">${route==='watch'?'返回观看':'返回当前步骤'}</button></div>`,{kind:'roles',guide:false});
@@ -373,7 +384,7 @@ function handleAction(action,b){
  case 'close-modal':closeModal();break;
  case 'enable-guide':prefs.guide=true;prefs.reader=false;persist();updateGuideUI();if(route==='home')renderHome();else if(route==='roles')playRoles();else say(currentGuide);break;
  case 'pref-online':{prefs.ttsMode=liveSpeech()?'local':'online';b.setAttribute('aria-checked',String(liveSpeech()));stopAll();persist();updateGuideUI();if(player){if(route==='full-review')renderFullRevision();else initPlayer(clipStart,clipEnd-clipStart,playerSettings(),player.currentTime)};break;}
- case 'pref-guide':prefs.guide=!prefs.guide;if(prefs.guide)prefs.reader=false;b.setAttribute('aria-checked',String(prefs.guide));$('[data-action="pref-reader"]').setAttribute('aria-checked',String(prefs.reader));persist();updateGuideUI();if(prefs.guide)say('dialog',modal.dataset.guideText||currentGuideText());else stopGuide();break;
+ case 'pref-guide':prefs.guide=!prefs.guide;if(prefs.guide)prefs.reader=false;b.setAttribute('aria-checked',String(prefs.guide));$('[data-action="pref-reader"]').setAttribute('aria-checked',String(prefs.reader));persist();updateGuideUI();if(prefs.guide)say('dialog','语音引导已开启。');else stopGuide();break;
  case 'pref-reader':prefs.reader=!prefs.reader;if(prefs.reader){prefs.guide=false;keyboardReader.stop();stopGuide();}b.setAttribute('aria-checked',String(prefs.reader));$('[data-action="pref-guide"]').setAttribute('aria-checked',String(prefs.guide));$('[data-action="pref-focus"]')?.setAttribute('aria-checked',String(prefs.focusReadout&&!prefs.reader));persist();updateGuideUI();break;
  case 'pref-shortcuts':prefs.shortcuts=!prefs.shortcuts;b.setAttribute('aria-checked',String(prefs.shortcuts));persist();break;
  case 'repeat-guide':repeatCurrentGuide();break;
