@@ -69,7 +69,7 @@ export function parseRequest(text,context,draft){
  if(/刚才发生|刚才讲|发生了什么/.test(t))return {kind:'explain',message:context.cues.length?'当前场景的已标注画面：'+context.cues.map(c=>c.text).join(''):'当前是“'+context.scene.title+'”。这段尚没有更细的画面记录，不能猜测未标注的动作。'};
  if(/(信|短信|文字|纸条).*(全文|完整读|读一遍)|读全文/.test(t))return {kind:'explain',message:'已暂停影片。这段素材尚未提供画面文字的完整转写，暂时无法读全文；读取偏好保持不变。'};
  if(/事实.*(错|不对)|原片.*(不是|不对)|他不是|她不是/.test(t))return {kind:'clarify',message:'需要先核对原片信息。请说明人物和画面位置；这条反馈会保留，暂不修改已记录的事实。'};
- if(/^(确认执行|继续|确认)[。！!？?]*$/.test(t))return {kind:'clarify',message:'是要确认执行这次修改吗？请检查待确认卡，再选择“确认执行”。'};
+ if(/^(确认执行|继续|确认)[。！!？?]*$/.test(t))return {kind:'explain',message:draft.clarification?draft.clarification.message:differences(draft.base,draft.effective).length?'确认的是上方列出的修改方案。请用 Tab 选择“确认执行”，再按回车；发送文字不会直接执行。':'还没有待执行的修改，请先描述需要怎样调整。'};
  if(/撤销刚才的修改|撤回刚才/.test(t))return {kind:'undo'};
  const effective=draft.effective,base=draft.base;
  const rateBlocked=/(别|不要|不|无需)(改|调|改变)语速|不要变慢|别变慢|别变快|不要变快|语速不变/.test(t);

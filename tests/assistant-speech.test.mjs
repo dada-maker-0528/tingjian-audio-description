@@ -18,16 +18,27 @@ test('speech policy reads essential transitions once, never typed text, progress
  const text=spokenChanges({changes:[{field:'speech_rate',value:.85},{field:'narration_gain_db',value:3}],scope:'current',targets:[{title:'城市骑行'}]});
  assert.match(text,/0.85/);assert.match(text,/3 分贝/);assert(!text.includes('speech_rate'));assert.match(text,/确认执行/);
 });
-test('automatic notices are brief and never recite the change list or dictated text',()=>{
- const details='把旁白改成0.85倍、提高3分贝，动作讲得更详细，并应用到后续场景。';
- assert(automaticMessage('ready',details).length<22);assert(!automaticMessage('ready',details).includes('0.85'));
- assert.match(automaticMessage('result'),/模拟/);assert(automaticMessage('result').length<22);
+test('confirmation and result speech preserve the actual proposal, question and next action',()=>{
+ const details='我会把旁白放慢到 0.85 倍，动作讲得更详细。先改当前场景，满意后后续沿用。是否确认执行？';
+ assert.equal(automaticMessage('ready',details),details);
+ const result='模拟方案已就绪，尚未生成新配音。请检查结果，有问题可以继续修改，满意后再继续。';
+ assert.equal(automaticMessage('result',result),result);
+ const clarification='你说的是哪位人物？请选择景浩或赵总，我会继续整理。';
+ assert.equal(automaticMessage('clarify',clarification),clarification);
+ assert.equal(automaticMessage('voice-error','未获得麦克风权限。请打开系统设置后重试。'),'未获得麦克风权限。请打开系统设置后重试。');
+});
+test('compound confirmation covers every requested change and names the actual target scenes',()=>{
+ const text=spokenChanges({changes:[{field:'speech_rate',value:.85},{field:'narration_gain_db',value:3},{field:'action_detail',value:'细节'},{field:'reference_mode',value:'每个动作点名'},{field:'character_alias',targetCharacterId:'C01',value:'阿明'},{field:'naming_mode',targetCharacterId:'C01',value:'用户别名'}],scope:'current_and_following',targets:[{number:1,title:'城市骑行'}]},{characters:[{id:'C01',name:'景浩'}]});
+ for(const value of ['0.85','3 分贝','动作','每个动作','景浩','阿明','城市骑行','后续','满意','确认执行'])assert(text.includes(value),value);
+ assert.match(text,/？/);assert(!text.includes('其余修改'));assert(!text.includes('C01'));
+ const specified=spokenChanges({changes:[{field:'action_detail',value:'细节'}],scope:'specified',targets:[{number:2,title:'工友合影'},{number:3,title:'夜间商谈旧手机'}]});
+ assert.match(specified,/工友合影/);assert.match(specified,/夜间商谈旧手机/);assert(!specified.includes('后续沿用'));
+});
+test('incidental progress and dictated text remain quiet',()=>{
  assert.equal(automaticMessage('running','正在执行修改指令，助手保持展开。'),'');
  assert.equal(automaticMessage('voice-ended','识别已结束，正在发送文字。'),'');
  assert.equal(automaticMessage('voice-ended','已停止语音输入，文字已保留。'),'');
  assert(!automaticMessage('voice-ended','语音输入结束。已输入：我的私人修改意见。按回车发送。').includes('私人修改意见'));
- assert.equal(automaticMessage('clarify','你说的是哪位人物？请选择后我会继续。'),'你说的是哪位人物？');
- assert.equal(automaticMessage('voice-error','未获得麦克风权限。请打开系统设置后重试。'),'未获得麦克风权限。');
  assert.equal(automaticMessage('answer','青年骑车，女孩坐在他身前。'),'青年骑车，女孩坐在他身前。');
 });
 function rig(extra={}){
