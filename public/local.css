@@ -1,0 +1,10 @@
+.live-project { padding-bottom: 48px; }
+.live-project video { display: block; width: 100%; max-height: 440px; background: #111; }
+.live-controls { display: flex; gap: 12px; flex-wrap: wrap; padding: 20px 0; }
+.live-actions { position: static; display: flex; flex-wrap: wrap; gap: 12px; margin: 24px 0; }
+.live-project .guide-banner { white-space: normal; }
+#local-projects { margin: 24px auto 48px; }
+#local-projects h2 { margin-bottom: 20px; }
+#live-text { width: 100%; font: inherit; border: 1px solid #767676; padding: 12px; }
+.header-stop { white-space: nowrap; }
+@media (max-width: 650px) { .header-stop { padding: 8px; } .live-controls .btn { flex: 1 1 42%; } }

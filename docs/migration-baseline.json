@@ -1,0 +1,36 @@
+{
+  "sourceDirectory": "E:\\gpt管理\\影石",
+  "sourceHead": "03107550d4a105d156af2b94278f4c5f164fa6b0",
+  "targetHead": "f207263c9c52318dd18ffe1a21bf2aa27f9241d1",
+  "note": "Source contains uncommitted work; per-file hashes identify copied content. No secrets or project data copied.",
+  "files": [
+    {
+      "source": "backend/ai.mjs",
+      "sha256": "bdf19b02ac00485396b276271dd2b869be75c957d0b019f7480ba9fd75428ddf"
+    },
+    {
+      "source": "backend/media.mjs",
+      "sha256": "afeac494302da5c25cce994bbe9f50bccad55a2149d6c6d350d137c8de5484e7"
+    },
+    {
+      "source": "backend/store.mjs",
+      "sha256": "728997e1a641fbf995085c74414b2cf4843ea586e81f8d92c1b98cb7a95e3d3f"
+    },
+    {
+      "source": "backend/service.mjs",
+      "sha256": "82677f232dab846b753ba8c20d3bc91a8d7ff9f2d6f8f0856b0c4a01da9d6519"
+    },
+    {
+      "source": "backend/script-review.mjs",
+      "sha256": "08d5a859ee03667ce3df0b7afac68a42c8578089597f661294fbd9c6189c55c4"
+    },
+    {
+      "source": "backend/ai.test.mjs",
+      "sha256": "724d99d40d6464af45a4c6106bed0a0814dbd0661c8d484744c16f1db758a363"
+    },
+    {
+      "source": "backend/script-review.test.mjs",
+      "sha256": "2e97487e92a3c44e729ec234c766f9f381ae3042f63e4cb9f9c5f29d8dc44274"
+    }
+  ]
+}
