@@ -1,18 +1,15 @@
 const CONTROLS='button,a[href],input:not([type="hidden"]),select,textarea,summary,[role="button"],[role="switch"],[role="slider"]';
 export function focusLabel(element){
  const referenced=element.getAttribute('aria-labelledby')?.split(/\s+/).map(id=>element.ownerDocument.getElementById(id)?.textContent||'').join(' ');
- let label=element.getAttribute('aria-label')||referenced;
+ let label=element.getAttribute('data-focus-label')||element.getAttribute('aria-label')||referenced;
  if(!label&&element.labels?.length)label=[...element.labels].map(x=>x.textContent).join(' ');
  if(!label){const copy=element.cloneNode(true);copy.querySelectorAll('svg,[aria-hidden="true"],kbd').forEach(x=>x.remove());label=copy.textContent||element.getAttribute('title')||element.getAttribute('placeholder');}
  label=String(label||'').replace(/\s+/g,' ').trim();if(!label)return '';
  const tag=element.tagName.toLowerCase(),role=element.getAttribute('role'),type=element.getAttribute('type');
- if(tag==='select')return `${label}，下拉选择，当前是${element.selectedOptions?.[0]?.textContent||'未选择'}。`;
- if(role==='switch'||type==='checkbox')return `${label}，${role==='switch'?'开关':'复选框'}，${element.getAttribute('aria-checked')==='true'||element.checked?'已开启':'已关闭'}。`;
- if(type==='range'||role==='slider')return `${label}，滑块，${element.getAttribute('aria-valuetext')||element.value||''}。`;
- if(tag==='input'||tag==='textarea')return `${label}，输入框。`;
- if(tag==='summary')return `${label}，展开按钮，${element.parentElement?.open?'已展开':'已收起'}。`;
- if(tag==='a')return `${label}，链接。`;
- const pressed=element.getAttribute('aria-pressed');return `${label}，按钮${pressed!==null?'，'+(pressed==='true'?'已开启':'已关闭'):''}。`;
+ if(tag==='select')return `${label}，${element.selectedOptions?.[0]?.textContent||'未选择'}。`;
+ if(role==='switch'||type==='checkbox')return `${label}，${element.getAttribute('aria-checked')==='true'||element.checked?'已开启':'已关闭'}。`;
+ if(type==='range'||role==='slider')return `${label}，${element.getAttribute('aria-valuetext')||element.value||''}。`;
+ return label;
 }
 export class FocusReader{
  constructor({enabled,beforeSpeak,status}){this.enabled=enabled;this.beforeSpeak=beforeSpeak;this.status=status;this.keyboard=false;this.sequence=0;this.timer=null;}
