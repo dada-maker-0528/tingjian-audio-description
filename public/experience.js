@@ -1,3 +1,6 @@
+import {createTaskProgress,runTaskPlan} from './task-progress.js';
+import {demoPlan} from './demo-progress.js';
+let processingView=null;
 import {icon,main,fillIcons,icons} from './app.js';
 import {defaults,newTask,migrateTaskToScenes,confirmStage,canComplete,changeNarrationVoice,copySettings,markFullRevisionReady,acceptFullRevision} from './flow.js';
 import {NarrationAssistant} from './assistant/view.js';
@@ -78,7 +81,7 @@ async function say(key,text,force=false,{sequence=false}={}){
 }
 function clearPlayer(){mediaAbort?.abort();mediaAbort=null;activeNarrationCues=null;mediaGeneration++;regenerationBusy=false;pauseMedia();if(player){player.removeAttribute('src');player.load();player=null;}narration.removeAttribute('src');narration.load();playerReady=false;}
 function page(html,guideKey,focus=true,options={}){
- assistant.hide();stopAll();clearPlayer();main.innerHTML=html;const heading=main.querySelector('h1');if(heading)heading.tabIndex=-1;fillIcons();
+ processingView?.dispose();processingView=null;main.classList.remove('process-page');assistant.hide();stopAll();clearPlayer();main.innerHTML=html;const heading=main.querySelector('h1');if(heading)heading.tabIndex=-1;fillIcons();
  $('.main-nav [data-action="home"]').classList.toggle('active',route==='home');$('.main-nav [data-action="library"]').classList.toggle('active',route==='library');
  currentGuide=guideKey||route;guideDetailPrefix=options.introPrefix||'';if(focus)focusTitle();updateGuideUI();mountAssistant();
  const pageKey=[currentGuide,film.id,['short','medium'].includes(route)?task?.sceneCount:'',route==='watch'?watching?.id:''].join(':');
@@ -97,7 +100,30 @@ function shell(content,active){return `<div class="container"><div class="back-r
 function renderUpload(){route='upload';page(shell(`<div class="stage-header"><div class="eyebrow">01 / 选择素材</div><h1>选择视频</h1></div><div class="upload-layout"><div class="upload-box" id="drop-zone">${icon('upload')}<h2>上传视频文件</h2><p>拖到这里，或选择设备上的视频</p><div class="upload-actions"><button class="btn primary" data-action="upload">${icon('plus')}选择视频文件</button><button class="btn" data-action="link">${icon('link')}粘贴链接</button></div></div><div class="demo-source"><span class="label">示例视频</span>${films.length>1?`<label class="field-label" for="catalog-source">选择公开视频</label><select class="text-input" id="catalog-source">${films.filter(hasNarration).map(f=>`<option value="${f.id}" ${f.id===film.id?'selected':''}>${esc(f.title)} · ${time(f.duration)}</option>`).join('')}</select>`:''}<div class="source-top"><img src="${assetURL('assets/'+film.covers[0].file)}" alt="青年骑车带着女孩"><div><h3>${esc(film.title)}</h3><p>${durationWords(film.duration)} · 中文原声 · ${roles.length} 位角色 · ${film.scenes.length} 个场景</p></div></div><button class="btn block" data-action="demo">使用演示视频 ${icon('arrow')}</button></div></div><p class="inline-note">${icon('info')}本地文件仅供预览；示例视频可体验制作流程。</p><div id="local-preview"></div>`,0),'upload');const dz=$('#drop-zone');dz.addEventListener('dragover',e=>{e.preventDefault();dz.style.borderColor='#111';});dz.addEventListener('dragleave',()=>dz.style.borderColor='');dz.addEventListener('drop',e=>{e.preventDefault();if(e.dataTransfer.files[0])handleFile(e.dataTransfer.files[0]);});if($('#catalog-source'))$('#catalog-source').addEventListener('change',e=>{stopGuide();selectFilm(e.target.value);const box=$('.demo-source .source-top');box.querySelector('img').src=assetURL('assets/'+film.covers[0].file);box.querySelector('img').alt=film.covers[0].alt;box.querySelector('h3').textContent=film.title;box.querySelector('p').textContent=durationWords(film.duration)+' · 中文原声 · '+roles.length+' 位角色 · '+film.scenes.length+' 个场景';});}
 function beginCreate(){stopAll();if(!hasNarration(film))selectFilm(defaultFilm.id);if(task&&!task.completed){showModal('继续上次制作？',`<p class="dialog-copy">你还有一份停在「${stageTitle(task)||'认识角色'}」的草稿。</p><div class="dialog-actions"><button class="btn" data-action="new-task">重新开始</button><button class="btn primary" data-action="resume">继续上次制作</button></div>`);return;}task=null;renderUpload();}
 function startDemo(){closeModal();task=newTask(film);task.candidate.voice=liveSpeech()?prefs.voice:DEFAULT_VOICE;persist();processing('analyzing','正在认识这个故事',['读取视频','整理出场人物',`整理 ${film.scenes.length} 个完整场景`,'整理旁白的插入位置'],()=>{renderRoles();},0);}
-function processing(kind,title,steps,done,active){route=kind;stopAll();const id=++runId;const entrance=page(shell(`<section class="processing"><div class="process-icon">${icon('spark')}</div><h1>${title}</h1><p>《${esc(film.title)}》 · ${time(film.duration)}<br>${kind==='analyzing'?'演示模式 · 正在准备预设人物与镜头':liveSpeech()?'正在准备素材，随后在线合成旁白':'正在准备本地演示音频'}</p><div class="progress-track" role="progressbar" aria-label="准备进度" aria-valuemin="0" aria-valuemax="${steps.length}" aria-valuenow="0"><div class="progress-fill" style="width:0%"></div></div><div class="process-list">${steps.map((x,i)=>`<div class="process-item" data-process="${i}">${icon('clock')}<span>${x}</span></div>`).join('')}</div></section>`,active),kind);let i=0;const tick=()=>{if(id!==runId)return;if(i<steps.length){const row=main.querySelector(`[data-process="${i}"]`);row.classList.add('current');row.innerHTML=icon('check')+`<span>${steps[i]}</span>`;$('.progress-fill').style.width=((i+1)/steps.length*100)+'%';$('.progress-track').setAttribute('aria-valuenow',i+1);i++;setTimeout(tick,650);}else{Promise.resolve(entrance).then(()=>{if(id===runId&&route===kind)done();});}};setTimeout(tick,500);}
+function processing(kind,title,steps,done,active){
+ route=kind;stopAll();const id=++runId;
+ const analysis=kind==='analyzing',full=kind==='full';
+ const labels=analysis?['读取演示视频','加载预设人物','加载预设镜头与场景','准备预设旁白时间轴']:['绑定旁白参数','构建审校样片','媒体完整性校验'];
+ if(full)labels[1]='准备完整旁白版本';
+ page(shell(`<section class="processing"><div class="process-icon">${icon('spark')}</div><h1>${title}</h1><p>《${esc(film.title)}》 · 内容时长 ${time(film.duration)}<br>${analysis?'演示模式 · 人物与镜头来自预设资料':'样片时长指播放内容长度；旁白准备按实际任务推进'}</p><div id="task-progress"></div></section>`,analysis?1:active),kind);
+ main.classList.add('process-page');
+ const names=['素材导入','内容解析','样片审校','连续性复核','成片交付'];
+ main.querySelectorAll('.stage-button').forEach((button,i)=>{button.lastElementChild.textContent=names[i];button.dataset.focusLabel=names[i];});
+ const heading=main.querySelector('.processing h1');
+ const view=createTaskProgress($('#task-progress'),{steps:labels,mode:analysis?'demo':'hybrid',completeLabel:analysis?'故事资料已准备好':full?'完整旁白已准备好':'样片已准备好',onReady:()=>{heading.textContent=analysis?'内容解析已完成':full?'完整口述成片已就绪':'审校样片已就绪';},onRetry:()=>processing(kind,title,steps,done,active)});
+ processingView=view;
+ const range=analysis||full?{start:0,duration:film.duration}:sceneRange(film,scenePreviewCount(task));
+ const {start,duration}=range;
+ const plan=demoPlan({kind,film,start,duration,settings:task.candidate,videoURL:(window.__TINGJIAN_ASSETS__||location.protocol==='file:')?assetURL(film.video):'/api/media/'+film.fileName,prepareNarration:async signal=>{
+  if(liveSpeech())return speech.narration(start,duration,task.candidate,signal,film);
+  if(task.candidate.voice!==DEFAULT_VOICE)throw new Error('当前音色需要在线语音服务');
+  const key=task.candidate.speed+'-'+task.candidate.density;
+  if(!film.fallbackAudio?.[key])throw new Error('缺少本地演示音频');
+  return {url:assetURL(film.fallbackAudio[key]),cues:film.narration?.[key]||[],provider:'local-preset'};
+ }});
+ void runTaskPlan(view,plan).then(ok=>{if(!ok||id!==runId||processingView!==view)return;stopGuide();done();});
+}
+
 function rolesHTML(){return `<div class="role-grid">${roles.map((r,i)=>`<article class="role-card" data-role="${i}"><div class="role-portrait" role="img" aria-label="${r.name}的人物画面" style="background-image:url('${assetURL('assets/'+r.image)}');background-size:${r.size};background-position:${r.pos};filter:grayscale(1)"></div><div class="role-card-body"><div class="role-index">角色 ${String(i+1).padStart(2,'0')} · ${r.nameSource}</div><h3>${r.name}</h3><p>${r.detail}</p><button class="text-btn" data-action="role" data-index="${i}" data-focus-label="再听${esc(r.name)}介绍">${icon('volume')}再听这个角色 <kbd>${i+1}</kbd></button></div></article>`).join('')}</div>`;}
 function renderRoles(){route='roles';page(shell(`<div class="stage-header"><div class="eyebrow">02 / 认识角色</div><h1>认识人物</h1><p>${roles.length} 位主要人物 · ${film.scenes.length} 个场景</p></div>${rolesHTML()}<div class="action-bar"><span class="hint" id="role-hint">${icon('volume')}${prefs.shortcuts?'数字 1—'+Math.min(roles.length,9)+' 再听人物 · ':''}空格继续</span><div class="actions"><button class="btn" data-action="roles-all">${icon('replay')}再听全部</button><button class="btn" data-action="chat">修改角色介绍</button><button class="btn primary" data-action="confirm">继续到首个场景 <kbd>空格</kbd> ${icon('arrow')}</button></div></div>`,1),'roles',true,{guide:false});enterRoles();}
 const roleReviewOpen=()=>modal.open&&modal.dataset.kind==='roles';
@@ -418,7 +444,7 @@ document.addEventListener('keydown',e=>{
  const review=roleReviewOpen();
  const roleAction=roleKeyAction(e,{active:!chat.open&&(review||route==='roles'&&!modal.open),editable:!!e.target.closest('input,textarea,select,video,[contenteditable="true"],[role="textbox"],[role="slider"]'),shortcuts:prefs.shortcuts,count:roles.length,review});
  if(roleAction){e.preventDefault();if(roleAction.action==='role')playRole(roleAction.index);else if(roleAction.action==='continue')confirm();else closeModal();return;}
- if(modal.open||e.target.closest('#chat,input,textarea,select,button,a,video,[contenteditable="true"]'))return;
+ if(modal.open||e.target.closest('#chat,input,textarea,select,button,summary,a,video,.task-inline-stream,[contenteditable="true"]'))return;
  if(e.code==='Space'){e.preventDefault();if(route==='home'||route==='library'){if(!prefs.reader){prefs.guide=true;persist();}beginCreate();}else if(route==='upload')$('#file-input').click();else if(['short','medium','watch','full-review'].includes(route)){playing?pauseMedia():playMedia();}}
  else if(e.key==='Enter'&&['roles','short','medium'].includes(route)){e.preventDefault();confirm();}
  else if(prefs.shortcuts&&/^[1-9]$/.test(e.key)){const i=Number(e.key)-1;if(route==='home'||route==='library'){const visible=[...main.querySelectorAll('[data-action="watch"]')];if(visible[i])visible[i].click();}}
