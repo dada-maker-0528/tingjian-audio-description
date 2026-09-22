@@ -53,7 +53,7 @@ h1{font-size:30px;letter-spacing:-.6px;font-weight:600}.btn{border-radius:7px;fo
 .assistant-docked{display:block;position:static;width:100%;height:auto;min-height:100%;max-height:none;margin:0;padding:0;border:0;border-radius:0;background:transparent;overflow:visible;box-shadow:none}
 .assistant-docked .assistant-shell{display:flex;flex-direction:column;min-height:calc(100dvh - 240px);height:auto;overflow:visible}
 .assistant-docked .assistant-header{display:flex;flex-direction:column;padding:0 0 23px;gap:15px;background:transparent;border-bottom:1px solid #e9e9e9;flex:none}
-.assistant-headline{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:36px}.assistant-docked .assistant-headline h2{font-size:18px;line-height:1.5;font-weight:550;margin:0}
+.assistant-headline{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:36px}.assistant-docked .assistant-headline{min-height:44px}.assistant-docked .assistant-headline h2{font-size:18px;line-height:1.5;font-weight:550;margin:0}
 .assistant-docked .assistant-header-actions{display:flex;gap:0;align-items:center}.assistant-docked .btn.assistant-tool{display:inline-grid;place-items:center;width:40px;height:44px;min-height:44px;padding:11px;border:0;background:transparent;border-radius:5px;color:#777}.assistant-docked .btn.assistant-tool:hover{background:#f4f4f4;color:#111}.assistant-tool svg{width:19px;height:19px;stroke-width:1.6}
 .assistant-context-row{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:14px}
 .assistant-docked .assistant-context-row select{grid-column:auto;min-width:0;width:100%;height:44px;padding:10px 8px;margin:0;font-size:14px;background:white;border:1px solid #e1e1e1;border-radius:6px;color:#555}

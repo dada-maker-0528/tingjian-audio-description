@@ -2,6 +2,10 @@ const knownPeople={'scene-01':['C01'],'scene-03':['C01'],'scene-04':['C01','C02'
 export function characterRegistry(film){return(film.roles||[]).map((r,i)=>({id:'C'+String(i+1).padStart(2,'0'),name:r.name,visualName:['短发男子','白衣中年男子','戴眼镜的男子'][i]||r.name,detail:r.detail,nameRevealedAt:i===0?34.35:null}));}
 export function makeContext(film,sceneId,playhead=0,taskId='demo'){
  const scene=film.scenes?.find(s=>s.id===sceneId);if(!scene)throw new Error('找不到这个场景。');
+ if(film.actualContext){
+  const registry=film.roles||[],cues=(scene.cues||[]).map(c=>({...c})),windows=cues.map(c=>({id:c.windowId,start:c.start,end:c.start+c.maxDuration,maxDuration:c.maxDuration}));
+  return {taskId,filmId:film.id,film,scene,sceneId,number:film.scenes.indexOf(scene)+1,playhead:Math.max(scene.start,Math.min(scene.end,playhead)),registry,characters:scene.characterIds?registry.filter(r=>scene.characterIds.includes(r.id)):[],cues,windows,protectedRanges:[],facts:scene.facts||[],limitations:['场景与人物来自现有素材或已有分析，内容仍需人工核对。','仅在当前版本已有旁白窗口内重制；不修改原片和原声。'],selectedCharacterId:null};
+ }
  const registry=characterRegistry(film),ids=scene.characterIds||knownPeople[scene.id]||[];
  const cues=(film.narration?.['normal-balanced']||[]).filter(c=>c.start>=scene.start&&c.start<scene.end).map((c,i)=>({...c,id:scene.id+'-n'+(i+1),windowId:scene.id+'-w'+(i+1),maxDuration:Math.min(c.maxDuration,scene.end-c.start)}));
  const windows=cues.map(c=>({id:c.windowId,start:c.start,end:c.start+c.maxDuration,maxDuration:c.maxDuration}));

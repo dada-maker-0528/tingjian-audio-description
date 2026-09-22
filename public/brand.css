@@ -1,0 +1,5 @@
+/* Reference-traced vectors; retain the existing brand and navigation geometry. */
+.site-header .brand .brand-mark { background: transparent; border-radius: 0; }
+.brand-mark > img { display: block; width: 100%; height: 100%; object-fit: contain; }
+.brand-wordmark { position: relative; color: transparent; }
+.brand-wordmark > img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }

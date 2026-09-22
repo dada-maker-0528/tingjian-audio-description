@@ -11,14 +11,14 @@ export function automaticMessage(event,message=''){
  if(['ready','result','clarify','error','voice-error','answer'].includes(event))return text;
  return '';
 }
-export function assistantKeyAction(event,{enabled=true,editable=false,inputFocused=false,recording=false}={}){
+export function assistantKeyAction(event,{enabled=true,editable=false,inputFocused=false,inputEmpty=false,retryReady=false,recording=false}={}){
  if(event.isComposing||event.keyCode===229||event.repeat||event.ctrlKey||event.metaKey||event.altKey)return null;
  if(event.key==='Escape'&&recording)return 'cancel';
  if(event.key==='Enter'&&!event.shiftKey){if(recording)return 'finish-send';if(inputFocused)return 'submit';}
- if(enabled&&String(event.key).toLowerCase()==='o'&&(!editable||recording))return recording?'finish':'voice';
+ if(enabled&&(String(event.key).toLowerCase()==='o'||event.code==='KeyO')&&(!editable||recording||inputFocused&&(inputEmpty||retryReady)))return recording?'finish':'voice';
  return null;
 }
-export function spokenChanges(plan,{full=false,characters=[]}={}){
+export function spokenChanges(plan,{full=false,characters=[],real=false}={}){
  if(plan.valid===false)return (plan.errors||[]).join(' ');
  const changes=plan.changes||[];
  if(!changes.length)return '当前没有待执行的修改，可以继续描述你的要求。';
@@ -39,11 +39,12 @@ export function spokenChanges(plan,{full=false,characters=[]}={}){
  });
  const targets=plan.targets||[],names=targets.map(t=>`${t.number?'场景 '+t.number:''}“${t.title}”`).join('、');
  const scope=plan.scope==='current_and_following'?`先改${names}，满意后后续场景沿用。`:`只改${names}。`;
- return `我准备这样调整：${list.join('，')}。${scope}原片画面和原声保持不变。\n是否按这个方案生成模拟结果？选择“确认执行”，或继续补充要求。`;
+ return `我准备这样调整：${list.join('，')}。${scope}原片画面和原声保持不变。\n是否按这个方案生成${real?'新配音':'模拟结果'}？选择“确认执行”，或继续补充要求。`;
 }
 export function resultGuidance(result,{canContinue=false,acceptedIds=[]}={}){
  const items=result?.candidates||[],remaining=items.filter(c=>!acceptedIds.includes(c.id)).length;
  const next=canContinue?'满意并继续':'满意并完成';
+ if(result?.mediaKind==='audio')return `${items.length} 个场景的新配音已生成。请试听，有问题选择“继续修改”，满意后采用。原版保留。`;
  return `${items.length} 个场景的模拟方案已就绪，尚未生成新配音。请检查文案与参数：有问题选择“继续修改”；${items.length>1&&remaining?`满意的场景选择“确认这个场景的方案”，全部确认后选择“${next}”。`:`满意则选择“${next}”。`}`;
 }
 export const SPEECH_RULES=[

@@ -32,9 +32,10 @@ export const FIELDS=[
  field('style','sentence_structure','句子结构',['短句','连贯句'],'短句','短句：一句一个动作；连贯句：连接同一人的连续动作。'),
  field('style','terminology','术语表达',['日常名称','专业名称＋解释'],'日常名称','专业名称第一次出现时提供简短解释。')
 ];
+FIELDS.find(f=>f.key==='speech_rate').options.unshift({value:.8,label:'稍慢 · 0.80 倍（原有设置）'});
 export const FIELD_MAP=Object.fromEntries(FIELDS.map(f=>[f.key,f]));
 export const clone=value=>JSON.parse(JSON.stringify(value));
 export const same=(a,b)=>JSON.stringify(a)===JSON.stringify(b);
-export function initialTags(legacy){const tags=Object.fromEntries(FIELDS.map(f=>[f.key,clone(f.default)]));tags.characterOverrides={};if(legacy){if(legacy.speed==='slow')tags.speech_rate=.85;if(legacy.gain===1)tags.narration_gain_db=3;if(legacy.density==='concise')tags.information_level='精简';if(legacy.voice)tags.voice_id=legacy.voice==='yunzhou'?'male':legacy.voice==='vivi'?'female':'neutral';}return tags;}
+export function initialTags(legacy){const tags=Object.fromEntries(FIELDS.map(f=>[f.key,clone(f.default)]));tags.characterOverrides={};if(legacy){tags.speech_rate=legacy.speed==='slow'?.8:typeof legacy.speed==='number'?legacy.speed:1;if(legacy.density==='concise')tags.information_level='精简';if(legacy.voice)tags.voice_id=legacy.voice==='yunzhou'?'male':legacy.voice==='vivi'?'female':'neutral';}return tags;}
 export function formatValue(key,value){if(key==='character_alias')return value||'未设置';const f=FIELD_MAP[key];if(Array.isArray(value))return value.join('、')||'不主动读取';return f?.options.find(o=>o.value===value)?.label??String(value??'未设置');}
 export const SCOPE_LABELS={current:'当前场景',specified:'指定场景',current_and_following:'当前场景及后续'};
