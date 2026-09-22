@@ -15,7 +15,7 @@
 .opening-eyebrow{font-size:13px;font-weight:500;letter-spacing:.28em;color:#dbdcd7;margin:0 0 30px}
 .opening h1{margin:0 0 26px;line-height:1;outline-offset:10px}
 .opening h1:focus{outline:none;box-shadow:none}
-.opening-wordmark{display:block;width:min(100%,820px);height:auto;filter:drop-shadow(0 4px 18px rgba(0,0,0,.12))}
+.opening-wordmark{display:block;width:min(100%,820px);height:auto;mix-blend-mode:screen;mask-image:radial-gradient(ellipse at center,#000 45%,transparent 74%)}
 .opening-tagline{font-family:'Microsoft YaHei UI','PingFang SC',sans-serif;font-size:clamp(23px,2.2vw,32px);font-weight:400;letter-spacing:.14em;line-height:1.6;margin:0 0 18px}
 .opening-description{font-size:15px;font-weight:400;color:#dddeda;line-height:2;letter-spacing:.04em;margin:0;max-width:36em}
 .opening-actions{display:flex;align-items:center;gap:30px;margin-top:38px}
