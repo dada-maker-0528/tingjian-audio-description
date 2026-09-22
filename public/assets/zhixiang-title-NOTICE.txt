@@ -1,0 +1,4 @@
+智享视界开屏标题：基于 GenSen Rounded 2 Bold 字形的四字圆体矢量排版。
+字体来源：https://github.com/ButTaiwan/gensen-font
+基于 Adobe Source Han Sans；版权及 SIL Open Font License 1.1 见 zhixiang-title-OFL.txt。
+背景：用户提供的原图，未经重绘。听见原 Logo 文件保持不变。

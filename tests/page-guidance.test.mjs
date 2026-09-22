@@ -57,7 +57,8 @@ test('each workflow screen provides its current stage and usable actions',()=>{
   assert.ok(pageGuide(key,{film}).includes(stage),key);
  }
  assert.match(pageGuide('generating',{film,task:{stage:'short'}}),/第三步/);
- assert.match(pageGuide('home',{film,filmCount:2,libraryCount:4}),/首页.*2 部.*4 个/);
+ assert.match(pageGuide('home',{film,filmCount:2,libraryCount:4}),/智享视界.*产品大王队.*进入我的视频/);
+ assert.doesNotMatch(pageGuide('home',{film,filmCount:2,libraryCount:4}),/2 部|4 个/);
 });
 test('scene guidance names the complete scope and offers either one more scene or the whole film',()=>{
  const text=pageGuide('medium',{film,task:{stage:'medium',sceneCount:3}});

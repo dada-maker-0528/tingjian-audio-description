@@ -1,4 +1,5 @@
 import {uploadVideo,projectRequest,filmFromProject} from './upload-service.js';
+import {openingPage} from './opening.js';
 import {request as backendRequest} from './assistant/backend-service.js';
 import {createAssistantBackend,audioBaseline} from './assistant/backend-service.js';
 import {createPromptLibrary} from './prompt-library.js';
@@ -136,6 +137,7 @@ async function say(key,text,force=false,{sequence=false}={}){
 }
 function clearPlayer(){mediaAbort?.abort();mediaAbort=null;activeNarrationCues=null;mediaGeneration++;regenerationBusy=false;pauseMedia();if(player){player.removeAttribute('src');player.load();player=null;}narration.removeAttribute('src');narration.load();playerReady=false;}
 function page(html,guideKey,focus=true,options={}){
+ document.body.classList.toggle('intro-page',route==='home');
  processingView?.dispose();processingView=null;main.classList.remove('process-page');assistant.hide();stopAll();clearPlayer();main.innerHTML=html;const heading=main.querySelector('h1');if(heading)heading.tabIndex=-1;fillIcons();
  $('.main-nav [data-action="home"]').classList.toggle('active',route==='home');$('.main-nav [data-action="library"]').classList.toggle('active',route==='library');
  currentGuide=guideKey||route;guideDetailPrefix=options.introPrefix||'';if(focus)focusTitle();updateGuideUI();mountAssistant();
@@ -146,6 +148,7 @@ function page(html,guideKey,focus=true,options={}){
 function goHome(isLibrary=false){runId++;stopAll();route=isLibrary?'library':'home';renderHome();}
 function filmCard(item,i,featured){const media=findFilm(item.assetId);if(!media)return '';const pos=item.position>1&&item.position<media.duration-2?item.position:0;const cover=media.covers[i%media.covers.length];return `<article class="film-card ${featured?'featured':''}"><div class="film-cover"><img src="${mediaAsset(cover.file)}" alt="${esc(cover.alt)}" loading="${i?'lazy':'eager'}"><span class="corner-tag">${icon('headphones')}${hasNarration(media)?'中文口述影像':'原片'}</span><span class="duration">${time(media.duration)}</span></div><div class="film-info"><div class="film-meta"><span class="index">${i+1}</span>${item.public?'公开视频':'本机口述版本'} · ${esc(media.kind||'影视片段')}</div><h3>${esc(item.title)}</h3><p>${esc(media.shortDescription||media.description||'')}</p><span class="status-label">${icon('check')}${pos?'已听到 '+time(pos):hasNarration(media)?'已添加口述影像':'原声视频'}</span><button class="btn primary" data-action="watch" data-id="${esc(item.id)}" data-focus-label="${pos?'继续播放':'播放'}《${esc(item.title)}》" aria-label="${pos?'继续播放':'播放'}《${esc(item.title)}》，${durationWords(media.duration)}">${icon('play')}${pos?'继续播放':'播放视频'}</button></div></article>`;}
 function renderHome(query=''){
+ if(route==='home'){page(openingPage(icon),'home',true,{guide:false});return;}
  const all=route==='library',source=all?library:library.filter(item=>item.public===true&&!item.sourceProjectId),items=visibleLibrary(source,{query,all});
  page(`<div class="container library-page"><div class="page-heading"><div class="title-line"><h1>${all?'我的视频':'示例视频'}</h1><span class="count">${source.length} 部</span></div><button class="btn primary" data-action="create">${icon('plus')}创建新视频<kbd>空格</kbd></button></div>${all?`<label class="search-box">${icon('search')}<input type="search" id="search" placeholder="搜索视频" aria-label="搜索我的视频" value="${esc(query)}"></label>`:''}${task&&!task.completed?`<div class="draft-strip">${icon('file')}<span>制作中 · ${stageTitle(task)}</span><button class="text-btn" data-action="resume">继续制作 ${icon('arrow')}</button></div>`:''}${revision&&!revision.completed?`<div class="draft-strip">${icon('file')}<span>${esc(revision.title)}</span><button class="text-btn" data-action="resume-revision">继续修改 ${icon('arrow')}</button></div>`:''}<div class="library-tools"><span>${all?'按名称查找':'最近添加'}</span>${!all&&library.length>6?`<button class="text-btn" data-action="library">查看全部 ${icon('arrow')}</button>`:''}</div><div class="library-grid" id="cards">${items.length?items.map((x,i)=>filmCard(x,i,false)).join(''):'<div class="empty-state"><h3>没有找到视频</h3></div>'}</div></div>`,all?'library':'home',false);
  if(all)$('#search').addEventListener('input',e=>{$('#cards').innerHTML=visibleLibrary(library,{query:e.target.value,all:true}).map((x,i)=>filmCard(x,i,false)).join('')||'<div class="empty-state"><h3>没有找到视频</h3></div>';});
@@ -468,6 +471,7 @@ function handleAction(action,b){
  case 'resume-revision':resumeRevision();break;
  case 'upload':keyboardReader.stop();stopGuide();$('#file-input').click();break;
  case 'demo':if($('#catalog-source'))selectFilm($('#catalog-source').value);startDemo();break;
+ case 'intro-read':void say('home',pageGuide('home',guideContext()),true);break;
  case 'link':showLink();break;
  case 'fill-link':$('#video-url').value='demo://user-film';$('#video-url').focus();break;
  case 'exit':showExit();break;
@@ -527,7 +531,8 @@ document.addEventListener('keydown',e=>{
  const roleAction=roleKeyAction(e,{active:!chat.open&&(review||route==='roles'&&!modal.open),editable:!!e.target.closest('input,textarea,select,video,[contenteditable="true"],[role="textbox"],[role="slider"]'),shortcuts:prefs.shortcuts,count:roles.length,review});
  if(roleAction){e.preventDefault();if(roleAction.action==='role')playRole(roleAction.index);else if(roleAction.action==='continue')confirm();else closeModal();return;}
  if(modal.open||e.target.closest('#chat,input,textarea,select,button,summary,a,video,.task-inline-stream,[contenteditable="true"]'))return;
- if(e.code==='Space'){e.preventDefault();if(route==='home'||route==='library'){if(!prefs.reader){prefs.guide=true;persist();}beginCreate();}else if(route==='upload')$('#file-input').click();else if(['short','medium','watch','full-review'].includes(route)){playing?pauseMedia():playMedia();}}
+ if(route==='home'&&(e.key==='Enter'||e.code==='Space')){e.preventDefault();goHome(true);return;}
+ if(e.code==='Space'){e.preventDefault();if(route==='library'){if(!prefs.reader){prefs.guide=true;persist();}beginCreate();}else if(route==='upload')$('#file-input').click();else if(['short','medium','watch','full-review'].includes(route)){playing?pauseMedia():playMedia();}}
  else if(e.key==='Enter'&&['roles','short','medium'].includes(route)){e.preventDefault();confirm();}
  else if(prefs.shortcuts&&/^[1-9]$/.test(e.key)){const i=Number(e.key)-1;if(route==='home'||route==='library'){const visible=[...main.querySelectorAll('[data-action="watch"]')];if(visible[i])visible[i].click();}}
 });
@@ -537,6 +542,6 @@ modal.addEventListener('click',e=>{if(e.target===modal){const r=modal.getBoundin
 chat.addEventListener('cancel',e=>{e.preventDefault();closeChat();});modal.addEventListener('cancel',e=>{e.preventDefault();closeModal();});
 window.addEventListener('pagehide',()=>{persist();stopAll();});
 document.addEventListener('visibilitychange',()=>{if(document.hidden){assistant.cancelVoice();keyboardReader.stop();pauseMedia();stopGuide();persist();}});
-async function boot(){await speech.discover();await loadUploaded();renderHome();registerTools();}
+async function boot(){renderHome();await speech.discover();await loadUploaded();updateGuideUI();if(route==='library'&&!modal.open)renderHome($('#search')?.value||'');registerTools();}
 function registerTools(){const context=document.modelContext;if(!context?.registerTool)return;const life=new AbortController();const tools=[{name:'get_audio_description_state',title:'查看口述影像状态',description:'Read the current visible stage, saved videos and candidate narration settings.',inputSchema:{type:'object',properties:{},additionalProperties:false},annotations:{readOnlyHint:true},execute:async input=>{if(Object.keys(input||{}).length)throw new Error('No parameters accepted');return{page:route,stage:task?.stage||null,sceneCount:task?.sceneCount||null,totalScenes:film.scenes?.length||0,settings:task?.candidate||null,videos:library.map(x=>({id:x.id,title:x.title,duration:findFilm(x.assetId)?.duration||0}))};}},{name:'start_audio_description',title:'开始制作口述影像',description:'Open the upload stage, or offer to resume the existing draft. This does not confirm a sample or save a film.',inputSchema:{type:'object',properties:{},additionalProperties:false},annotations:{readOnlyHint:false},execute:async input=>{if(Object.keys(input||{}).length)throw new Error('No parameters accepted');beginCreate();return{page:route,draftChoiceOpen:modal.open};}}];for(const tool of tools){try{Promise.resolve(context.registerTool(tool,{signal:life.signal})).catch(()=>{});}catch{}}window.addEventListener('pagehide',()=>life.abort(),{once:true});}
 boot();

@@ -28,7 +28,7 @@ export function pageGuide(key,{film={},task,libraryCount=0,filmCount=0,shortcuts
  const sceneNames=(film.scenes||[]).slice(0,count).map(s=>s.title).join('、');
  const action='按空格播放或暂停。右侧旁白助手保持展开。'+(shortcuts?'在非输入区域按字母 O 开始语音输入，':'选择语音输入开始说话，')+'按回车结束识别并发送文字。也可直接输入意见，回车发送，Shift 加回车换行。先生成修改指令，确认后才执行。';
  switch(key){
-  case 'home':return `当前是首页，你的视频库。公开片库有 ${filmCount} 部影片，当前列表有 ${libraryCount} 个视频。按空格创建新视频，${shortcuts?'也可以按数字键播放对应编号的视频。':'也可以选择影片播放。'}${navigation}`;
+  case 'home':return `欢迎来到智享视界，产品大王队出品。我们为视障用户讲述画面中的人物、动作与细节，让故事不止于看见。进入后可以播放示例，也可以上传视频，用一句话调整旁白。按回车或空格进入我的视频。${navigation}`;
   case 'library':return `当前是我的全部视频，共 ${libraryCount} 个条目。可以搜索片名，或选择视频继续观看。${navigation}`;
   case 'upload':return `当前是${stepNames.upload}。可选择本地视频预览，或选择“使用演示视频”体验完整制作流程。${navigation}`;
   case 'analyzing':return `当前是${stepNames.analyzing}。正在为《${film.title||'这段影片'}》整理人物和 ${total} 个场景。我们会先介绍人物，再按原片顺序从第一个完整场景开始试听。`;
@@ -47,7 +47,7 @@ export function pageGuide(key,{film={},task,libraryCount=0,filmCount=0,shortcuts
 }
 export function briefPageGuide(key,{film={},task,libraryCount=0}={}){
  switch(key){
-  case 'home':return '首页，视频库。';
+  case 'home':return '智享视界，产品大王队出品。按回车或空格进入体验。';
   case 'library':return `我的视频，共 ${libraryCount} 部。`;
   case 'upload':return '第一步，选择视频。';
   case 'roles':return roleIntroduction(film.roles||[]);
