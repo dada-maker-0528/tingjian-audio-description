@@ -1,6 +1,6 @@
 import {parseRequest} from './model.js';
 export async function request(url,body,signal){
- const response=await fetch(url,{method:body?'POST':'GET',headers:body?{'Content-Type':'application/json','X-Tingjian-Request':'1'}:undefined,body:body?JSON.stringify(body):undefined,signal,cache:'no-store'});
+ const response=await fetch(url,{method:body?'POST':'GET',headers:body?{'Content-Type':'application/json','X-Tingjian-Request':'1'}:undefined,body:body?JSON.stringify(body):undefined,signal:signal||AbortSignal.timeout(120000),cache:'no-store'});
  const value=await response.json();if(!response.ok||!value.ok)throw new Error(value.error||'服务请求未完成');return value.data;
 }
 export async function audioBaseline(url,cues){
@@ -26,15 +26,19 @@ export function createAssistantBackend({store,save,baseline,preview,stop}){
    return parseRequest(text,ctx,draft);
   },
   async run(run,a){
+   const started=Date.now();let message='正在准备完整原版与修改任务';
+   const elapsed=setInterval(()=>{const label=a.el.querySelector('.assistant-running p');if(label)label.textContent=message+` · 已用 ${Math.floor((Date.now()-started)/1000)} 秒`;},1000);
+   try{
    const data=await context(a),s=source(a);store.runs[key(a)]=run;save();
    let result=await request('/api/assistant/run',{source:s,sourceVersion:data.sourceVersion,requestId:run.id,sceneId:run.sceneId,baseCandidate:a.draft.baseVersion==='original'?null:a.draft.baseVersion,patches:run.plan.patches,scope:run.plan.scope,targetIds:run.plan.targets.map(t=>t.sceneId),baseline:s.projectId?undefined:await baseline(a)});
    store.sources[key(a)]={projectId:result.projectId};save();
    while(result.status==='running'){
-    const label=a.el.querySelector('.assistant-running p');if(label)label.textContent=result.message;
+    message=result.message;const label=a.el.querySelector('.assistant-running p');if(label)label.textContent=message+` · 已用 ${Math.floor((Date.now()-started)/1000)} 秒`;
     await new Promise(resolve=>setTimeout(resolve,700));result=await request(`/api/assistant/${result.projectId}/jobs/${result.id}`);
    }
    delete store.runs[key(a)];save();if(result.status!=='complete')throw new Error(result.message);
    return {runId:run.id,taskId:run.taskId,submittedRevision:run.submittedRevision,projectId:result.projectId,jobId:result.id,mediaKind:'audio',candidates:result.candidates};
+   }finally{clearInterval(elapsed);}
   },
   async accept(a,sceneId){
    const result=a.draft.result;if(!result?.jobId)throw new Error('此方案没有实际配音，请重新生成');

@@ -110,7 +110,7 @@ export function createLocalServer(){
         }catch(error){await handle.close().catch(()=>{});if(!projects.has(id))await unlink(file).catch(()=>{});throw error;}finally{uploads.delete(requestId);}
         return;
       }
-      if(url.pathname==='/api/assistant/context'&&req.method==='POST'){json(res,assistantContext(await readJSON(req)));return;}
+      if(url.pathname==='/api/assistant/context'&&req.method==='POST'){json(res,await assistantContext(await readJSON(req)));return;}
       if(url.pathname==='/api/assistant/voice'&&req.method==='POST'){json(res,await assistantVoice(await readJSON(req,30_000_000)));return;}
       if(url.pathname==='/api/assistant/read'&&req.method==='POST'){const input=await readJSON(req,30_000_000),controller=new AbortController();res.on('close',()=>controller.abort());json(res,await readAssistantText(input,controller.signal));return;}
       if(url.pathname==='/api/assistant/run'&&req.method==='POST'){json(res,await beginAssistantRun(await readJSON(req,30_000_000)));return;}

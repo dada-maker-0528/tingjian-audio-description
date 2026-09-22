@@ -24,8 +24,8 @@ const envelope=(name,value)=>new Response(JSON.stringify({choices:[{message:{too
 globalThis.fetch=async(url,options)=>{if(options.body instanceof FormData)return new Response(JSON.stringify({text:'旁白慢一点',segments:[]}));const b=JSON.parse(options.body);requests.push(b);if(url.endsWith('/t2a_v2'))return new Response(JSON.stringify({data:{audio:speechBytes.toString('hex')}}));const name=b.tools[0].function.name;if(name==='submit_assistant_observations')return envelope(name,{facts:[{frame:0,text:'蓝色画面'}],texts:[{frame:0,category:'信件纸条',carrier:'纸条',text:'测试文字。'},{frame:0,category:'对白字幕',carrier:'字幕',text:'重复对白。'}],limitations:'测试模型返回，非真实识别'});return envelope(name,{text:'蓝色。',reason:'测试改写'});};
 const start=patches=>beginAssistantRun({source:{projectId:p.id},sourceVersion:p.workflow.current.id,requestId:crypto.randomUUID(),sceneId:'first',scope:'current',targetIds:['first'],patches});
 async function complete(job){const until=Date.now()+30000;while(job.status==='running'){assert.ok(Date.now()<until,'job timeout');await new Promise(r=>setTimeout(r,40));job=assistantJob(job.projectId,job.id);}assert.equal(job.status,'complete',job.message);return job;}
-test('all 29 fields and each selectable value compile with semantic scope; no permanently unavailable field',()=>{
- assert.equal(FIELDS.length,29);const data=assistantContext({projectId:p.id}),ctx=makeContext(data.film,'first',0,p.id);let checked=0;
+test('all 29 fields and each selectable value compile with semantic scope; no permanently unavailable field',async()=>{
+ assert.equal(FIELDS.length,29);const data=await assistantContext({projectId:p.id}),ctx=makeContext(data.film,'first',0,p.id);let checked=0;
  for(const f of FIELDS){assert.ok(!f.unavailable,f.key);const options=f.type==='alias'?[{value:'小蓝'}]:f.options;
   for(const option of options){const session=createSession(p.id,data.film,data.settings),d=openDraft(session,ctx);const patch={field:f.key,value:f.type==='set'?[option.value]:option.value,...(f.type==='alias'||f.key==='naming_mode'&&option.value==='用户别名'?{targetCharacterId:'p1'}:{})};const patches=patch.targetCharacterId&&f.key==='naming_mode'?[{field:'character_alias',targetCharacterId:'p1',value:'小蓝'},patch]:[patch];editDraft(d,patches,ctx);const plan=compileDraft(session,d,ctx);assert.ok(plan.valid||plan.errors.every(e=>e.includes('无需重新生成')),f.key+':'+plan.errors);if(plan.valid)assert.ok(plan.fullPrompt.includes(f.key));checked++;}
  }
@@ -54,7 +54,7 @@ test.after(()=>{globalThis.fetch=originalFetch;});
 
 
 test('confirmed following-scene rule produces and persists later audio without touching an individually accepted scene',async()=>{
- const data=assistantContext({projectId:p.id});
+ const data=await assistantContext({projectId:p.id});
  const job=await complete(await beginAssistantRun({source:{projectId:p.id},sourceVersion:data.sourceVersion,requestId:crypto.randomUUID(),sceneId:'first',scope:'current_and_following',patches:[{field:'narration_gain_db',value:-3}]}));
  await acceptAssistant(p.id,{jobId:job.id,sceneId:'first'});
  assert.equal(p.assistant.accepted.second.settings.narration_gain_db,-3);

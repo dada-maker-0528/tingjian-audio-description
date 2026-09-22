@@ -8,7 +8,7 @@ import {transcribeRecording} from './workflow.mjs';
 import {newWorkflow,newVersion,preferences,validatePreferences} from './workflow-state.mjs';
 import {cloudSpeech,rewriteAssistantCue} from './ai.mjs';
 import {renderNarration} from './narration.mjs';
-import {narrationFile,overlayNarration} from './assistant-audio.mjs';
+import {narrationFile,overlayNarration,applyAcceptedAssistantAudio} from './assistant-audio.mjs';
 import {films} from '../public/catalog-config.js';
 import {catalogScenes} from '../public/assistant/catalog-scenes.js';
 import {createSession,openDraft,editDraft,compileDraft,makeContext,applyPatches} from '../public/assistant/model.js';
@@ -45,7 +45,31 @@ function contextFor(p){
  const film={id:p.id,title:p.title,duration:p.duration,actualContext:true,scenePlanVersion:`${c.start}-${c.end}`,scenes,roles};
  return {projectId:p.virtual?null:p.id,sourceVersion:c.id,settings:c.settings,film,accepted:p.assistant?.accepted||{},originalNarrationUrl:c.result.narrationUrl||null,sourceUrl:p.virtual?'/api/media/'+films.find(f=>f.id===p.assistantCatalog).fileName:assetUrl(p,p.source)};
 }
-export function assistantContext(source){return contextFor(parent(source));}
+export async function assistantContext(source){
+ const p=parent(source);
+ if(!p.virtual&&p.assistantCatalog)await locked(p.id,()=>repairCatalogCoverage(p));
+ return contextFor(p);
+}
+function catalogVariant(settings){return (settings.speed===.8?'slow':'normal')+'-'+settings.density;}
+function expectedCatalogCues(p){const f=films.find(f=>f.id===p.assistantCatalog),c=p.workflow.current;return (f?.narration[catalogVariant(c.settings)]||[]).filter(q=>q.start>=c.start&&q.start<c.end);}
+export function validateBaselineCoverage(expected,cues){
+ if(expected.some(q=>!cues.some(c=>Math.abs(c.start-q.start)<.05)))throw new Error('原版旁白缺少后续场景，请读取完整音轨后重试；没有覆盖原版。');
+}
+async function repairCatalogCoverage(p){
+ const old=p.workflow.current;if(!old?.result||active.has(p.id))return;
+ const expected=expectedCatalogCues(p),overrides=p.assistant?.audioOverrides||Object.values(p.assistant?.accepted||{});
+ const missing=expected.filter(q=>!overrides.some(a=>q.start>=a.start&&q.start<a.end)&&!old.result.cues.some(c=>Math.abs(c.start+old.start-q.start)<.05));
+ if(!missing.length)return;
+ const film=films.find(f=>f.id===p.assistantCatalog),variant=catalogVariant(old.settings);
+ if(old.settings.voice!=='vivi'||!film.fallbackAudio[variant])throw new Error('旧版旁白不完整，请以完整原版重新制作；旧版已保留。');
+ const version=structuredClone(old);version.id=randomUUID();
+ const file=path.join(projectDir(p.id),`narration-${version.id}-restored.wav`);
+ await run(ffmpeg,['-v','error','-ss',String(old.start),'-i',path.join(root,'public',film.fallbackAudio[variant]),'-t',String(old.end-old.start),'-c:a','pcm_s16le','-y',file]);
+ version.result={...old.result,versionId:version.id,narrationUrl:assetUrl(p,file),cues:expected.map(q=>({...q,start:q.start-old.start,end:q.end-old.start}))};
+ await applyAcceptedAssistantAudio(p,version);
+ version.coverageRepair={restoredStarts:missing.map(q=>q.start),sourceVersion:old.id,at:new Date().toISOString()};
+ p.workflow.history.push({...structuredClone(old),supersededAt:new Date().toISOString()});p.workflow.current=version;p.workflow.revision++;await save(p);
+}
 export async function readAssistantText(input,signal){
  let p=parent(input.source);const data=contextFor(p);
  if(data.sourceVersion!==input.sourceVersion)throw conflict('当前视频版本已变化，请重新打开助手');
@@ -72,14 +96,15 @@ async function materialize(p,baseline){
  const film=films.find(f=>f.id===p.assistantCatalog),dir=projectDir(p.id);await mkdir(dir,{recursive:true});
  const source=path.join(dir,'source.mp4');await copyFile(path.join(root,'public',film.video),source);
   const file=path.join(dir,'catalog-original.wav');
- const current=p.workflow.current;let original=path.join(root,'public',film.fallbackAudio['normal-balanced']);
+ const current=p.workflow.current,variant=catalogVariant(current.settings);let original=path.join(root,'public',film.fallbackAudio[variant]||'');
  if(baseline){
   if(typeof baseline.audio!=='string'||baseline.audio.length>26000000||!Array.isArray(baseline.cues)||baseline.cues.length>1000)throw new Error('原版旁白数据无效');
+  validateBaselineCoverage(expectedCatalogCues(p),baseline.cues);
   original=path.join(dir,'assistant-baseline.bin');await writeFile(original,Buffer.from(baseline.audio,'base64'));const info=await probe(original);if(info.duration<current.end-.1||info.duration>film.duration+.5)throw new Error('原版旁白时长与视频不符');
   const windows=film.narration['normal-balanced'];
   for(const cue of baseline.cues)if(typeof cue.text!=='string'||cue.text.length>500||!Number.isFinite(cue.start)||!Number.isFinite(cue.end)||cue.end<=cue.start||!windows.some(w=>cue.start>=w.start-.05&&cue.end<=w.start+w.maxDuration+.05))throw new Error('原版旁白不在已记录的原声空隙');
   current.result.cues=baseline.cues.filter(c=>c.start>=current.start&&c.start<current.end).map(c=>({text:c.text,start:c.start-current.start,end:c.end-current.start,maxDuration:windows.find(w=>c.start>=w.start-.05&&c.end<=w.start+w.maxDuration+.05).maxDuration}));
- }else if(current.settings.voice!=='vivi'||current.settings.speed!==1||current.settings.density!=='balanced')throw new Error('请从播放器重新打开助手，以读取当前实际旁白');
+ }else if(current.settings.voice!=='vivi'||!film.fallbackAudio[variant])throw new Error('请从播放器重新打开助手，以读取当前实际旁白');
  await run(ffmpeg,['-v','error','-ss',String(current.start),'-i',original,'-t',String(current.end-current.start),'-c:a','pcm_s16le','-y',file]);
  const saved=await registerUpload(p.id,film.title+'-旁白修订.mp4',source,{guided:true});
  saved.assistantCatalog=film.id;saved.scenes=p.scenes;saved.workflow=p.workflow;delete saved.virtual;

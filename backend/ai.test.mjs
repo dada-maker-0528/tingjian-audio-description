@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 process.env.AIMEDIA_API_KEY='test-placeholder';
-const {analyze,validateAnalysis,shorten}=await import('./ai.mjs');
+const {analyze,validateAnalysis,shorten,identifyRoles}=await import('./ai.mjs');
 const frames=[.5,1.5,2.5].map((time,i)=>({time,file:`frame-${i}.jpg`,url:'data:image/jpeg;base64,dGVzdA=='}));
 const valid=()=>({scenes:[
   {title:'海面',firstFrame:0,lastFrame:1,evidenceFrame:0,evidence:'蓝色海面与浅色天空',facts:['蓝色海面'],category:'required',text:'蓝色海面。',uncertainty:'采样无法确认浪的运动方向。'},
@@ -17,6 +17,21 @@ async function mocked(values,fn){
   try{return await fn(requests);}finally{globalThis.fetch=original;}
 }
 const run=()=>analyze(frames,{text:'',segments:[]},[{start:0,end:3}],3);
+test('role analysis repairs malformed evidence without inventing a frame and stops after three attempts',async()=>{
+ const invalid={roles:[{name:'短发男子',detail:'穿蓝色上衣',frame:'0'}]},valid={roles:[{name:'短发男子',detail:'穿蓝色上衣',frame:0}]};
+ await mocked([envelope(invalid,'submit_roles'),envelope(valid,'submit_roles')],async requests=>{
+  const roles=await identifyRoles(frames,{segments:[]});assert.equal(roles[0].evidenceFile,'frame-0.jpg');assert.equal(requests.length,2);assert.match(requests[1].messages.at(-1).content,/不能编造/);
+ });
+ await mocked(Array.from({length:3},()=>envelope(invalid,'submit_roles')),async requests=>{
+  await assert.rejects(identifyRoles(frames,{segments:[]}),/画面依据/);assert.equal(requests.length,3);
+ });
+});
+test('two failed shortening attempts can use a complete existing short title with explicit omissions',async()=>{
+ const scene={title:'拆解旧手机',text:'一双手拆开旧手机，露出电池和主板。',evidence:'手机与双手可见',facts:['拆解手机'],insertStart:0,insertEnd:2};
+ const bad=envelope({text:scene.text,reason:'仍然太长'},'submit_narration_edit');
+ await mocked([bad,bad],async()=>{const result=await shorten(scene);assert.equal(result.text,scene.title);assert.match(result.reason,/未全部保留/);});
+ await mocked([bad,bad],async()=>{await assert.rejects(shorten({...scene,title:'场景8'}),/有效的精简/);});
+});
 test('personal analysis advertises and enforces the same 12-group limit',async()=>{
   const many=Array.from({length:13},(_,i)=>({time:i+.5,file:`frame-${i}.jpg`,url:frames[0].url}));
   const value={scenes:many.map((_,i)=>({...valid().scenes[0],firstFrame:i,lastFrame:i,evidenceFrame:i}))};
