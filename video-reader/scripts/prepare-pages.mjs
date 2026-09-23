@@ -1,0 +1,12 @@
+import {readFile,writeFile,mkdir,cp} from 'node:fs/promises';
+import {fileURLToPath} from 'node:url';
+import path from 'node:path';
+const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
+const out=path.join(root,'dist/pages');
+await mkdir(out,{recursive:true});
+await cp(path.join(root,'public'),out,{recursive:true});
+const media=await readFile(path.join(root,'server/media.mjs'),'utf8');
+const entry=(await readFile(path.join(root,'server/worker.mjs'),'utf8')).replace(/^import .*?;\n/,'');
+await writeFile(path.join(out,'_worker.js'),media+'\n'+entry);
+await writeFile(path.join(out,'_routes.json'),JSON.stringify({version:1,include:['/assets/video.mp4'],exclude:[]})+'\n');
+console.log('Prepared both Pages views with the verified video Range handler.');

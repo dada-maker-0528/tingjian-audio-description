@@ -26,8 +26,13 @@ for(const item of manifest.records){
  assert.equal(createHash('sha256').update(bytes).digest('hex'),item.sha256);
 }
 const head=await request('/assets/video.mp4',{method:'HEAD'});
-const size=Number(head.headers.get('content-length'));assert(size>1000000);
+assert.match(head.headers.get('content-type')||'',/video\/mp4/);
 const video=await request('/assets/video.mp4',{headers:{Range:'bytes=0-1023'}});
-assert.equal(video.status,206);assert.equal(video.headers.get('content-range'),`bytes 0-1023/${size}`);
+assert.equal(video.status,206);
+const range=/^bytes 0-1023\/(\d+)$/.exec(video.headers.get('content-range')||'');
+assert(range,'Video must support a real byte-range response');
+const size=Number(range[1]);assert(size>1000000);
+const declaredSize=head.headers.get('content-length');
+if(declaredSize!==null)assert.equal(Number(declaredSize),size);
 assert.equal((await video.arrayBuffer()).byteLength,1024);
 console.log(JSON.stringify({origin:origin.origin,passed:true,videoBytes:size,checks:results},null,2));
