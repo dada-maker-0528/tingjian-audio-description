@@ -1,0 +1,64 @@
+name: Deploy video reader
+
+on:
+  push:
+    branches:
+      - codex/video-reader-deploy
+    paths:
+      - video-reader/**
+      - .github/workflows/deploy-video-reader.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tingjian-video-reader-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      WRANGLER_SEND_METRICS: 'false'
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install existing deployment tools
+        run: npm ci
+      - name: Test both reader versions
+        run: npm --prefix video-reader test
+      - name: Verify static files and voice assets
+        run: npm --prefix video-reader run check
+      - name: Validate deployment bundle
+        run: npx wrangler deploy --dry-run --config video-reader/wrangler.jsonc
+      - name: Check Cloudflare configuration
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          for name in CLOUDFLARE_API_TOKEN CLOUDFLARE_ACCOUNT_ID; do
+            if [ -z "${!name}" ]; then
+              echo "::error::Missing repository secret: $name"
+              exit 1
+            fi
+          done
+      - name: Publish fullscreen and phone reader
+        id: publish
+        uses: cloudflare/wrangler-action@v4
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          wranglerVersion: '4.135.0'
+          command: deploy --config video-reader/wrangler.jsonc
+      - name: Verify live pages, audio and video seeking
+        env:
+          READER_URL: ${{ steps.publish.outputs.deployment-url }}
+        run: |
+          test -n "$READER_URL"
+          node video-reader/scripts/verify-deployment.mjs "$READER_URL"
+          printf 'Fullscreen: %s/\nPhone: %s/portrait.html\n' "${READER_URL%/}" "${READER_URL%/}" >> "$GITHUB_STEP_SUMMARY"

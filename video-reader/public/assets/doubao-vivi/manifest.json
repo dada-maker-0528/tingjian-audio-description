@@ -1,0 +1,70 @@
+{
+  "provider": "volcengine",
+  "voice": "vivi",
+  "generatedAt": "2026-09-22T15:35:43.531Z",
+  "records": [
+    {
+      "file": "ride-brief.wav",
+      "text": "青年骑车，女孩坐在他身前。",
+      "provider": "volcengine",
+      "voice": "vivi",
+      "sampleRate": 24000,
+      "duration": 3.1710833333333333,
+      "sha256": "e01ca02781730f1d0b69dca62bf99ff2c3e7ed2833ceb8a9908ba621e431c4ec"
+    },
+    {
+      "file": "ride-detail.wav",
+      "text": "青年穿着黄色上衣，戴着头盔骑车。女孩坐在他的身前。",
+      "provider": "volcengine",
+      "voice": "vivi",
+      "sampleRate": 24000,
+      "duration": 5.598041666666667,
+      "sha256": "d6a45bf8718a0eaf293bb468b968a398ed513bfb5d3ef0962fdf0dddda80c2da"
+    },
+    {
+      "file": "night-intro.wav",
+      "text": "画面转到夜间商谈旧手机的场景。",
+      "provider": "volcengine",
+      "voice": "vivi",
+      "sampleRate": 24000,
+      "duration": 3.1853333333333333,
+      "sha256": "1d61b246c3c96b21e86620d334122193d20f2d1286a996b794db276ae8fd6986"
+    },
+    {
+      "file": "night-brief.wav",
+      "text": "景浩低着头，眉头微微皱起。",
+      "provider": "volcengine",
+      "voice": "vivi",
+      "sampleRate": 24000,
+      "duration": 2.9995833333333333,
+      "sha256": "192665b9bc33d6311a83a053b5e5ad39d5a53c1d4eadc3246a0228e822f2d150"
+    },
+    {
+      "file": "night-detail.wav",
+      "text": "这是夜间商谈旧手机的片段。画面中可以看到景浩低头、皱眉的表情。",
+      "provider": "volcengine",
+      "voice": "vivi",
+      "sampleRate": 24000,
+      "duration": 6.190833333333333,
+      "sha256": "d54fcdb9147121c73f85141d1d3f90c45143cb1fc4f03b6a179b706c317ce794"
+    },
+    {
+      "file": "factory-brief.wav",
+      "text": "工人坐在工作台前，分头忙碌。",
+      "provider": "volcengine",
+      "voice": "vivi",
+      "sampleRate": 24000,
+      "duration": 3.184083333333333,
+      "sha256": "1797a62728f17d774b3d29e2ec928f090cb72ee9ce489dd733e19a0738c2d2ab"
+    },
+    {
+      "file": "factory-detail.wav",
+      "text": "镜头来到厂房，工人们坐在工作台前，各自忙碌。",
+      "provider": "volcengine",
+      "voice": "vivi",
+      "sampleRate": 24000,
+      "duration": 4.6135,
+      "sha256": "2f0fc65317d3c50623f1feab0eff1b648bd36e993ca06d269ea57324806fc34e"
+    }
+  ]
+}

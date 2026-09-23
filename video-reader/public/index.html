@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="zh-CN">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>听见 · 视频读屏</title><link rel="stylesheet" href="style.css"></head>
+<body data-audio-base="assets/doubao-vivi">
+<main class="content-page" aria-label="正在浏览的短视频页面">
+ <h1 class="sr-only">短视频内容</h1><span class="page-context">短视频页面 · 演示</span>
+ <section id="player-area" class="video-surface" aria-label="视频播放区域">
+  <video id="video" src="assets/video.mp4" poster="assets/poster.jpg" autoplay muted playsinline preload="auto" aria-label="城市骑行，演示视频"></video>
+  <div class="site-controls"><div class="clip-meta"><span id="clip-title">城市骑行</span><span id="clip-counter">01 / 03</span></div><div class="transport"><button id="play" aria-label="暂停视频">暂停</button><span id="time">00:00 / 00:12</span><input id="seek" type="range" min="0" max="12.2" value="0" step="0.1" aria-label="视频播放进度"><button id="mute" aria-label="开启原声">原声关</button></div></div>
+ </section>
+ <nav class="feed-controls" aria-label="切换短视频"><button id="previous" aria-label="上一个视频" title="上一条">↑</button><button id="next" aria-label="下一个视频" title="下一条">↓</button></nav>
+</main>
+<div id="scan-frame" class="scan-frame" hidden aria-hidden="true"><span class="region-tag" id="region-tag">视频区域</span><i class="scan-line"></i></div>
+<div class="reading-caption" id="caption" hidden><span>听见</span><p id="caption-text"></p></div>
+<div class="event-chip" id="event-chip" hidden role="status">视频已暂停，补充后继续</div>
+<section class="reader-bar" aria-label="听见读屏控制条">
+ <strong>听见</strong><span class="status-dot" aria-hidden="true"></span><span id="reader-status">正在定位视频</span>
+ <button id="reader-toggle" class="read-toggle" aria-pressed="false">开启朗读</button>
+ <button id="hold-button" class="voice-trigger" aria-label="按住说话" aria-pressed="false" title="按住空格说话">语音 <kbd>空格</kbd></button>
+ <button id="more" class="more-button" aria-label="快捷操作与说明" aria-expanded="false">···</button>
+</section>
+<section id="command-panel" class="command-panel" role="dialog" aria-labelledby="command-title" hidden>
+ <div class="panel-heading"><strong id="command-title">正在听你说话</strong><button id="cancel-input" aria-label="取消输入">取消</button></div>
+ <label class="sr-only" for="input">指令或问题</label><textarea id="input" rows="2" maxlength="300" placeholder="下一个、暂停，或者问画面里的细节…"></textarea>
+ <div class="command-footer"><p id="voice-status">松开结束 · 回车发送 · Esc 取消</p><button id="send" disabled>发送 ↵</button></div>
+</section>
+<section id="quick-menu" class="quick-menu" aria-label="快捷操作" hidden>
+ <p><kbd>空格</kbd> 按住说话，松开结束</p><p><kbd>Enter</kbd> 发送　<kbd>Esc</kbd> 取消</p>
+ <div class="menu-actions"><button id="type-command">输入指令</button><button id="rescan">重新定位视频</button></div>
+ <details><summary>关于演示</summary><p>自动框出本页视频的实际画面区域，跟随窗口与视频尺寸变化。旁白使用豆包 Vivi 合成音频；画面理解、问答与暂停时机为预设演示，不连接抖音账号。</p></details><a class="version-link" href="portrait.html">打开竖屏版本 · 豆包配音</a>
+</section>
+<div id="notice" class="notice" role="status" hidden></div><audio id="reader-audio" preload="auto" hidden></audio><script src="app.js"></script>
+</body></html>

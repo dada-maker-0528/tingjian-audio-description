@@ -1,0 +1,21 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {parseCommand,PlaybackGate,keyAction,HoldToTalk,swipeDirection} from '../src/core.mjs';
+test('commands distinguish navigation, playback, seeking and questions',()=>{
+ assert.equal(parseCommand('下一个，下一个').type,'next');assert.equal(parseCommand('上一个视频').type,'previous');assert.equal(parseCommand('暂停').type,'pause');assert.equal(parseCommand('继续播放').type,'play');assert.equal(parseCommand('后退十秒').seconds,-10);assert.equal(parseCommand('前进5秒').seconds,5);assert.equal(parseCommand('不要切到下一个').type,'question');
+});
+test('a held narration resumes only after its actual completion',()=>{const g=new PlaybackGate();const t=g.beginSpeech(true);assert(!g.canPlay);assert(g.finishSpeech(t).resume);assert(g.canPlay);});
+test('pause or new input during narration prevents unwanted auto-resume',()=>{for(const action of ['pause','input']){const g=new PlaybackGate(),t=g.beginSpeech(true);if(action==='pause')g.setPlaying(false);else g.beginInput();assert(!g.finishSpeech(t).resume);assert(!g.canPlay);}});
+test('old audio callbacks cannot resume a different video or a newer narration',()=>{const g=new PlaybackGate(),old=g.beginSpeech(true);g.switchClip();const next=g.beginSpeech(true);assert(!g.finishSpeech(old).valid);assert(!g.canPlay);assert(g.finishSpeech(next).resume);});
+test('Space is hold-to-talk; release is never send and editable/IME spaces are preserved',()=>{
+ const e={key:' ',code:'Space',type:'keydown'};assert.equal(keyAction(e),'record');assert.equal(keyAction({...e,repeat:true}),null);assert.equal(keyAction(e,{editable:true}),null);assert.equal(keyAction({...e,isComposing:true}),null);assert.equal(keyAction({...e,type:'keyup'},{held:true}),'release');assert.equal(keyAction({key:'Enter',type:'keydown'},{held:true,active:true}),'wait-release');assert.equal(keyAction({key:'Enter',type:'keydown'},{hasDraft:true}),'send');assert.equal(keyAction({key:'Enter',type:'keydown',shiftKey:true},{hasDraft:true}),null);
+});
+function rig(){const made=[],texts=[],states=[],sent=[];class Rec{start(){}stop(){}abort(){}}const v=new HoldToTalk({factory:()=>{const r=new Rec();made.push(r);return r;},onText:t=>texts.push(t),onState:(...s)=>states.push(s),onSend:t=>sent.push(t)});return {v,made,texts,states,sent};}
+const result=(text,final)=>Object.assign([{transcript:text}],{isFinal:final});
+test('releasing Space ends recognition but does not submit',()=>{const x=rig();x.v.start();const r=x.made[0];r.onstart();r.onresult({results:[result('下一个',true)]});x.v.release();r.onend();assert.equal(x.v.state,'ready');assert.equal(x.texts.at(-1),'下一个');assert.equal(x.sent.length,0);});
+test('Enter while finalizing waits for the final result and sends exactly once',()=>{const x=rig();x.v.start();const r=x.made[0];r.onstart();r.onresult({results:[result('下',false)]});x.v.release();x.v.requestSend();assert.equal(x.sent.length,0);r.onresult({results:[result('下一条',true)]});r.onend();r.onend();assert.deepEqual(x.sent,['下一条']);});
+test('Esc restores the previous draft and drops late recognition callbacks',()=>{const x=rig();x.v.start('原有文字');const r=x.made[0];r.onresult({results:[result('新录音',true)]});x.v.cancel();r.onresult({results:[result('迟到的文字',true)]});r.onend();assert.equal(x.texts.at(-1),'原有文字');assert.equal(x.sent.length,0);});
+test('errors and interim-only recognition never auto-send',()=>{for(const mode of ['error','interim']){const x=rig();x.v.start();const r=x.made[0];r.onresult({results:[result('暂定文字',false)]});x.v.requestSend();if(mode==='error')r.onerror({error:'network'});else r.onend();assert.equal(x.sent.length,0);assert.equal(x.v.state,'error');}});
+test('late microphone start after key release does not return to recording',()=>{const x=rig();x.v.start();const r=x.made[0];x.v.release();r.onstart();assert.equal(x.v.state,'stopping');r.onend();assert.equal(x.sent.length,0);});
+test('Escape cancels once, never again on key release',()=>{assert.equal(keyAction({key:'Escape',type:'keydown'}),'cancel');assert.equal(keyAction({key:'Escape',type:'keyup'}),null);});
+test('vertical swipes change video without mistaking taps or horizontal movement for navigation',()=>{assert.equal(swipeDirection(5,-100),1);assert.equal(swipeDirection(5,100),-1);assert.equal(swipeDirection(0,-20),0);assert.equal(swipeDirection(100,55),0);});
