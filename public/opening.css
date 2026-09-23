@@ -1,35 +1,56 @@
-.intro-page{background:#161715;color:#f6f4ef}
-.intro-page .site-header{position:absolute;inset:0 0 auto;max-width:none;height:116px;padding:32px clamp(24px,5.6vw,96px);z-index:2;justify-content:space-between}
-.intro-page .site-header .brand{gap:10px;padding:10px 14px;background:#f6f4ef;border-radius:12px;font-size:23px}
-.intro-page .brand-mark{width:34px;height:34px}
-.intro-page .brand-sub,.intro-page .header-actions,.intro-page .demo-notice,.intro-page .site-footer,.intro-page .main-nav [data-action="home"],.intro-page .main-nav [data-action="prompt-library"]{display:none}
+/* Reference: silver light, charcoal grain, Song lettering and an eye becoming sound. */
+.intro-page{background:#252829;color:#f4f3ef}
+.intro-page .site-header{position:absolute;inset:0 0 auto;max-width:none;height:106px;padding:28px 7.5vw;z-index:2;justify-content:space-between}
+.intro-page .site-header .brand{gap:10px;padding:8px 0;background:transparent;border-radius:0;font-size:23px;color:#f4f3ef}
+.intro-page .brand-mark{width:31px;height:31px}.intro-page .brand-mark img{filter:grayscale(1) invert(1)}.intro-page .brand-wordmark img{filter:grayscale(1) brightness(0) invert(1)}
+.intro-page .brand-sub,.intro-page .header-actions,.intro-page .demo-notice,.intro-page .site-footer,.intro-page .main-nav [data-action="home"],.intro-page .main-nav [data-action="about"],.intro-page .main-nav [data-action="prompt-library"]{display:none}
 .intro-page .main-nav{margin:0;height:auto;display:block}
-.intro-page .main-nav [data-action="library"]{display:inline-flex;align-items:center;gap:18px;min-height:44px;padding:10px 18px;color:#20211f;background:rgba(246,244,239,.88);border:1px solid rgba(246,244,239,.35);border-radius:30px;font-size:14px}
+.intro-page .main-nav [data-action="library"]{display:inline-flex;align-items:center;gap:22px;min-height:44px;padding:9px 18px;color:#f4f3ef;background:#2025256b;border:1px solid #e8e8e17a;border-radius:3px;font-size:13px}
 .intro-page .main-nav [data-action="library"]::after{content:'↗';position:static;background:none;width:auto;height:auto;border-radius:0;font-size:18px}
-.intro-page .main-nav [data-action="library"]:hover{background:#fff}
+.intro-page .main-nav [data-action="library"]:hover{background:#202525a6}
 .intro-page .skip-link:focus{z-index:20}
-.opening{position:relative;isolation:isolate;min-height:100svh;display:flex;flex-direction:column;justify-content:center;padding:148px clamp(24px,7.3vw,124px) 116px;overflow:hidden;background:#161715}
-.opening::before{content:'';position:absolute;z-index:-2;inset:0;background:url('assets/zhixiang-opening.png') center center/cover no-repeat}
-.opening::after{content:'';position:absolute;z-index:-1;inset:0;background:linear-gradient(90deg,rgba(10,12,11,.36),rgba(10,12,11,.12) 55%,transparent),linear-gradient(0deg,rgba(10,12,11,.35),transparent 55%)}
-.opening-content{width:min(100%,940px);padding-block:24px;animation:opening-reveal .75s ease-out both}
-.opening-eyebrow{font-size:13px;font-weight:500;letter-spacing:.28em;color:#dbdcd7;margin:0 0 30px}
-.opening h1{margin:0 0 26px;line-height:1;outline-offset:10px}
+.opening{position:relative;isolation:isolate;min-height:max(720px,100svh);display:flex;flex-direction:column;justify-content:center;padding:175px 7.5vw 125px;overflow:hidden;background:#252829}
+.opening::before{content:'';position:absolute;z-index:-2;inset:0;background:url('assets/tingjian-opening-soft-grain-v2.png') center 51%/cover no-repeat}
+.opening::after{content:'';position:absolute;z-index:-1;inset:0;background:linear-gradient(90deg,#15191a18,transparent 65%),linear-gradient(0deg,#18202038,transparent 22%)}
+.opening-art{position:absolute;width:69%;height:100%;right:1%;top:0;color:#eeeee9;opacity:.85;pointer-events:none}
+.opening-eyebrow{position:absolute;top:140px;left:7.5vw;font-size:16px;font-weight:400;letter-spacing:.06em;color:#ecece7;margin:0}
+.opening-content{position:relative;z-index:1;width:max-content;max-width:100%;padding-block:24px}
+.opening h1{font-family:'Noto Serif CJK SC','Songti SC',SimSun,serif;font-size:clamp(78px,7.3vw,112px);font-weight:400;color:#f4f3ef;letter-spacing:.18em;margin:0 0 27px;line-height:1.15;outline-offset:10px}
 .opening h1:focus{outline:none;box-shadow:none}
-.opening-wordmark{display:block;width:min(100%,820px);height:auto;mix-blend-mode:screen;mask-image:radial-gradient(ellipse at center,#000 45%,transparent 74%)}
-.opening-tagline{font-family:'Microsoft YaHei UI','PingFang SC',sans-serif;font-size:clamp(23px,2.2vw,32px);font-weight:400;letter-spacing:.14em;line-height:1.6;margin:0 0 18px}
-.opening-description{font-size:15px;font-weight:400;color:#dddeda;line-height:2;letter-spacing:.04em;margin:0;max-width:36em}
-.opening-actions{display:flex;align-items:center;gap:30px;margin-top:38px}
-.opening-enter{display:inline-flex;align-items:center;justify-content:space-between;gap:40px;min-height:58px;padding:10px 12px 10px 26px;border:1px solid #f6f4ef;border-radius:40px;background:#f6f4ef;color:#1b1c1a;font-size:16px;font-weight:550;letter-spacing:.08em;transition:background .2s,transform .2s}
-.opening-enter>span{display:grid;place-items:center;background:#212320;color:#f6f4ef;border-radius:50%;width:34px;height:34px}
-.opening-enter svg{width:20px;height:20px}.opening-enter:hover{background:#fff;transform:translateY(-2px)}
-.opening-listen{display:inline-flex;align-items:center;gap:9px;min-height:48px;color:#e7e8e3;font-size:14px;padding:10px 0;border-bottom:1px solid transparent}
-.opening-listen:hover{color:#fff;border-color:#b6b8b2}.opening-listen svg{width:18px;height:18px}
-.opening-shortcut{display:flex;align-items:center;gap:8px;margin-top:16px;color:#c4c6bf;font-size:12px;letter-spacing:.03em}
-.opening-shortcut kbd{background:transparent;border:1px solid #7d8078;border-radius:4px;color:inherit;font-size:11px;padding:2px 5px;box-shadow:none}
-.opening-footer{position:absolute;bottom:34px;left:clamp(24px,7.3vw,124px);right:clamp(24px,7.3vw,124px);display:flex;align-items:center;justify-content:space-between;gap:24px;padding-top:24px;border-top:1px solid rgba(238,239,230,.22)}
-.opening-credit{font-size:14px;letter-spacing:.18em;color:#f1f1ec}.opening-credit>span{font-size:11px;letter-spacing:.08em;color:#c0c3ba;margin-left:16px}.opening-note{font-size:12px;letter-spacing:.07em;color:#c0c3ba}
-.intro-page button:focus-visible{outline:2px solid #fff;outline-offset:6px}.intro-page .brand:focus-visible,.intro-page .main-nav button:focus-visible{outline-color:#c9d1bd;box-shadow:0 0 0 8px #20231f}
-@keyframes opening-reveal{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
-@media(min-width:901px) and (max-height:780px){.opening{padding-top:124px;padding-bottom:94px}.opening-content{padding-block:12px}.opening-eyebrow{margin-bottom:20px}.opening-wordmark{width:690px}.opening h1{margin-bottom:16px}.opening-tagline{font-size:26px;margin-bottom:12px}.opening-actions{margin-top:26px}.opening-footer{bottom:24px;padding-top:18px}}
-@media(max-width:700px){.intro-page .site-header{height:96px;padding:22px 24px}.intro-page .site-header .brand{padding:8px 11px;font-size:21px}.intro-page .brand-mark{width:30px;height:30px}.opening{padding:138px 26px 150px;justify-content:center}.opening::before{background-position:58% center}.opening::after{background:linear-gradient(0deg,rgba(7,9,8,.54),rgba(7,9,8,.28))}.opening-eyebrow{font-size:11px;letter-spacing:.2em;margin-bottom:26px}.opening h1{margin-bottom:24px}.opening-wordmark{width:100%}.opening-tagline{font-size:23px;letter-spacing:.07em;margin-bottom:18px}.opening-description{font-size:13px;line-height:2.1;letter-spacing:0}.opening-actions{gap:22px;flex-wrap:wrap;margin-top:30px}.opening-enter{gap:30px;min-height:54px;padding-left:23px;font-size:15px}.opening-listen{font-size:13px}.opening-footer{left:26px;right:26px;bottom:28px;align-items:flex-start;flex-direction:column;gap:12px;padding-top:20px}.opening-credit{font-size:13px}.opening-note{font-size:11px}.opening-shortcut{font-size:11px}}
-@media(prefers-reduced-motion:reduce){.opening-content{animation:none}.opening-enter{transition:none}.opening-enter:hover{transform:none}}
+.opening-rule{display:block;width:53px;height:5px;background:#d5d6d1;margin-bottom:23px}
+.opening-tagline{font-size:21px;font-weight:400;letter-spacing:.04em;line-height:1.55;margin:0 0 19px;color:#f4f3ef}
+.opening-description{font-size:13px;font-weight:400;color:#d8dad6;line-height:1.9;letter-spacing:.025em;margin:0;max-width:29em}
+.opening-actions{display:flex;align-items:center;gap:27px;margin-top:29px}
+.opening-enter{display:inline-flex;align-items:center;justify-content:space-between;gap:29px;min-height:49px;padding:11px 18px 11px 21px;border:1px solid #f0efea;border-radius:3px;background:#f0efea;color:#212625;font-size:14px;font-weight:500;letter-spacing:.05em;transition:background .18s}
+.opening-enter>span{display:grid;place-items:center;width:20px;height:20px}
+.opening-enter svg{width:20px;height:20px}.opening-enter:hover{background:#fff}
+.opening-listen{display:inline-flex;align-items:center;gap:9px;min-height:48px;color:#f1f1ec;font-size:13px;padding:10px 0;border-bottom:1px solid #d1d4cd66}
+.opening-listen:hover{color:#fff;border-color:#eee}.opening-listen svg{width:17px;height:17px}
+.opening-shortcut{display:flex;align-items:center;gap:8px;margin-top:15px;color:#d7d9d4;font-size:11px;letter-spacing:.03em}
+.opening-shortcut kbd{background:#2025253d;border:1px solid #b5b8b080;border-radius:3px;color:inherit;font-size:10px;padding:2px 5px;box-shadow:none}
+.opening-footer{position:absolute;bottom:39px;left:7.5vw;right:7.5vw;display:flex;align-items:center;justify-content:space-between;gap:24px}
+.opening-credit{font-size:15px;letter-spacing:.04em;color:#efefe9}.opening-credit-divider{color:#b5b9b0;margin-inline:20px}.opening-produced{font-size:11px;color:#d2d5cd;margin-left:8px}.opening-note{font-size:12px;letter-spacing:.07em;color:#d2d5cd}
+.intro-page button:focus-visible{outline:2px solid #fff;outline-offset:6px;box-shadow:0 0 0 3px #202525}
+@media(min-width:1600px){.opening-art{right:5%;width:65%}}
+@media(min-width:701px) and (max-width:1050px){.opening-art{width:78%;right:-12%;opacity:.65}.opening-tagline{font-size:19px}.opening-credit{font-size:13px}.opening-note{font-size:11px}.opening-credit-divider{margin-inline:12px}}
+@media(min-width:701px) and (max-height:780px){.opening{min-height:700px;padding-top:156px;padding-bottom:92px}.opening-eyebrow{top:120px}.opening-content{padding-block:12px}.opening h1{font-size:88px;margin-bottom:22px}.opening-description{font-size:12px}.opening-actions{margin-top:23px}.opening-footer{bottom:28px}}
+@media(max-width:700px){
+ .intro-page .site-header{height:90px;padding:22px 25px}.intro-page .site-header .brand{font-size:21px}.intro-page .brand-mark{width:28px;height:28px}
+ .intro-page .main-nav [data-action="library"]{padding:8px 13px;gap:15px;font-size:12px}
+ .opening{min-height:max(850px,100svh);padding:156px 25px 350px;justify-content:flex-start}
+ .opening::before{background-position:55% center}.opening::after{background:linear-gradient(180deg,#171c1d38,transparent 55%,#171c1d26)}
+ .opening-eyebrow{top:119px;left:25px;font-size:13px}
+ .opening-content{padding:22px 0 0;width:100%}
+ .opening h1{font-size:76px;letter-spacing:.16em;margin-bottom:22px}
+ .opening-rule{width:39px;height:4px;margin-bottom:20px}
+ .opening-tagline{font-size:18px;letter-spacing:.025em;margin-bottom:17px}
+ .opening-description{font-size:12px;line-height:1.8}
+ .opening-actions{gap:24px;margin-top:26px}.opening-enter{font-size:14px;gap:24px;padding-left:18px;min-height:49px}.opening-listen{font-size:12px}
+ .opening-shortcut{font-size:10px;margin-top:14px}
+ .opening-art{width:108%;height:320px;top:auto;bottom:34px;right:-5%;opacity:.77}
+ .opening-footer{left:25px;right:25px;bottom:25px;gap:10px;justify-content:flex-end}
+ .opening-credit{font-size:11px}.opening-credit-divider{margin-inline:12px}.opening-produced{font-size:10px;margin-left:5px}.opening-note{display:none}
+}
+@media(max-width:359px){.intro-page .site-header{padding-inline:20px}.opening{padding-inline:20px}.opening-eyebrow{left:20px}.opening-actions{gap:18px}.opening-enter{gap:17px;padding-inline:15px}.opening-listen{gap:7px}.opening-footer{left:20px;right:20px}.opening-credit-divider{margin-inline:8px}}
+@media(prefers-reduced-motion:reduce){.opening-enter{transition:none}}
+@media(forced-colors:active){.intro-page,.opening{background:Canvas;color:CanvasText}.opening::before,.opening::after,.opening-art{display:none}.opening :is(h1,p,span),.intro-page .main-nav button{color:CanvasText!important}.opening-rule{background:CanvasText}.intro-page button{border:1px solid ButtonText!important}.intro-page button:focus-visible{outline-color:Highlight}.intro-page .brand img{filter:none}}

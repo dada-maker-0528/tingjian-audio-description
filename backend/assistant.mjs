@@ -15,6 +15,7 @@ import {createSession,openDraft,editDraft,compileDraft,makeContext,applyPatches}
 import {initialTags} from '../public/assistant/schema.js';
 import {assistantSpeech} from './assistant-speech.mjs';
 import {observeScene} from './assistant-observations.mjs';
+import {groundedSceneTitle} from './scene-titles.mjs';
 const active=new Map(),locks=new Map(),conflict=message=>Object.assign(new Error(message),{status:409});
 const voices={female:'vivi',neutral:'xiaohe',male:'yunzhou'};
 const idOK=id=>typeof id==='string'&&/^[a-zA-Z0-9-]{1,64}$/.test(id);
@@ -39,7 +40,7 @@ function contextFor(p){
  const scenes=(p.scenes||[]).filter(s=>s.start<c.end&&s.end>c.start).map((s,i)=>{
   const start=Math.max(c.start,s.start),end=Math.min(c.end,s.end);
   const selected=cues.filter(q=>q.start>=start&&q.start<end).map((q,j)=>({...q,windowId:s.id+'-w'+j,maxDuration:Math.max(0,Math.min(q.maxDuration||q.end-q.start,end-q.start,(cues[cues.indexOf(q)+1]?.start??end)-q.start))}));
-  return {id:s.id||'scene-'+i,title:s.title||'片段 '+(i+1),start,end,characterIds:s.characterIds,cues:selected,facts:(s.facts||[]).map((text,j)=>({id:(s.id||i)+'-f'+j,text,revealedAt:start}))};
+  return {id:s.id||'scene-'+i,title:groundedSceneTitle(s,p.transcript)||'片段 '+(i+1),start,end,characterIds:s.characterIds,cues:selected,facts:(s.facts||[]).map((text,j)=>({id:(s.id||i)+'-f'+j,text,revealedAt:start}))};
  });
  if(!scenes.length)scenes.push({id:'current',title:'当前试听片段',start:c.start,end:c.end,cues:cues.map((q,i)=>({...q,windowId:'window-'+i,maxDuration:q.end-q.start})),facts:[]});
  const film={id:p.id,title:p.title,duration:p.duration,actualContext:true,scenePlanVersion:`${c.start}-${c.end}`,scenes,roles};

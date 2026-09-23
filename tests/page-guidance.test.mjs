@@ -3,6 +3,8 @@ import assert from 'node:assert/strict';
 import {GuideSequence,roleTourSteps,roleKeyAction,pageGuide,briefPageGuide,roleChoices} from '../public/page-guidance.js';
 import {rateForGuide} from '../public/prompt-speech.js';
 import {sceneFilm} from './fixtures/scene-film.mjs';
+import {defaultFilm} from '../public/catalog-config.js';
+import {stageFilm} from '../public/stage-media.js';
 const film={...sceneFilm,roles:[{name:'甲',detail:'第一人的特征'},{name:'乙',detail:'第二人的特征'},{name:'丙',detail:'第三人的特征'}]};
 
 test('character tour introduces the count, each person, then offers valid replay and continuation choices',()=>{
@@ -57,11 +59,30 @@ test('each workflow screen provides its current stage and usable actions',()=>{
   assert.ok(pageGuide(key,{film}).includes(stage),key);
  }
  assert.match(pageGuide('generating',{film,task:{stage:'short'}}),/第三步/);
- assert.match(pageGuide('home',{film,filmCount:2,libraryCount:4}),/智享视界.*产品大王队.*进入我的视频/);
+ assert.match(pageGuide('home',{film,filmCount:2,libraryCount:4}),/听见.*产品大王队.*进入我的视频/);
  assert.doesNotMatch(pageGuide('home',{film,filmCount:2,libraryCount:4}),/2 部|4 个/);
 });
 test('scene guidance names the complete scope and offers either one more scene or the whole film',()=>{
  const text=pageGuide('medium',{film,task:{stage:'medium',sceneCount:3}});
  assert.match(text,/前 3 个完整场景/);assert.match(text,/街道、办公室、车厢/);assert.match(text,/扩展到 4 个场景/);assert.match(text,/全部 5 个场景/);
  assert.doesNotMatch(text,/七秒|四十五|复验/);
+});
+test('the prepared film speaks six steps that match the four existing video ranges',()=>{
+ const short={stage:'short',mediaScene:undefined};
+ const first={stage:'medium',mediaScene:undefined};
+ const second={stage:'medium',mediaScene:'s2'};
+ const full={stage:'complete',mediaExtended:true};
+ const cases=[
+  ['short',defaultFilm,short,/第三步，试听/],
+  ['medium',defaultFilm,first,/第四步，首个场景/],
+  ['medium',stageFilm(defaultFilm,second),second,/第五步，连续场景/],
+  ['complete',stageFilm(defaultFilm,full),full,/第六步，制作完成/],
+ ];
+ for(const [key,source,task,label] of cases){
+  assert.match(pageGuide(key,{film:source,task}),label);
+  assert.match(briefPageGuide(key,{film:source,task}),new RegExp(label.source.split('，')[0]));
+  assert.doesNotMatch(pageGuide(key,{film:source,task}),/演示|模拟/);
+ }
+ assert.doesNotMatch(pageGuide('short',{film:defaultFilm,task:short}),/首个场景试听/);
+ assert.doesNotMatch(pageGuide('medium',{film:stageFilm(defaultFilm,second),task:second}),/前 2 个场景连续播放/);
 });

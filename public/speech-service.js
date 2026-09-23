@@ -1,6 +1,7 @@
 import {defaultFilm} from './catalog-config.js';
 import {assetURL} from './asset-url.js';
 import {DEFAULT_VOICE} from './voices.js';
+import {normalizePrompt} from './ui-speech.js';
 const SAMPLE_RATE=24000,IDENTITY='volc-voices-2.0-v2';
 function wavFromSegments(segments,duration){
  const bytes=new Uint8Array(44+Math.ceil(duration*SAMPLE_RATE)*2),v=new DataView(bytes.buffer),enc=new TextEncoder();
@@ -14,11 +15,37 @@ async function readCache(key){const db=await database();if(!db)return null;retur
 async function saveCache(key,value){const db=await database();if(!db)return;await new Promise(resolve=>{const transaction=db.transaction('audio','readwrite');transaction.objectStore('audio').put(value,key);transaction.oncomplete=transaction.onerror=transaction.onabort=()=>{db.close();resolve();};});}
 function aborted(signal){if(signal?.aborted)throw new DOMException('已取消','AbortError');}
 export class SpeechService{
- constructor(){this.available=false;this.cache=new Map();this.queue=Promise.resolve();}
+ constructor(){this.available=false;this.cache=new Map();this.queue=Promise.resolve();this.guideFlights=new Map();this.warmQueue=[];this.warmKeys=new Set();this.warmActive=0;this.warmFailures=new Map();}
  async discover(){if(location.protocol==='file:'||window.__TINGJIAN_ASSETS__)return false;try{const response=await fetch('/api/tts/status',{cache:'no-store',signal:AbortSignal.timeout(4000)});if(response.ok){const data=await response.json();this.available=data.configured===true;}}catch{}return this.available;}
  enqueue(job){const result=this.queue.catch(()=>{}).then(job);this.queue=result.catch(()=>{});return result;}
  async request(body,signal){aborted(signal);const response=await fetch('/api/tts',{method:'POST',headers:{'Content-Type':'application/json','X-Tingjian-Request':'1'},body:JSON.stringify(body),signal});if(!response.ok){let data={};try{data=await response.json();}catch{}throw new Error(data.message||'在线语音暂时不可用。');}return response;}
- async guide(text,signal,voice=DEFAULT_VOICE){const key=[IDENTITY,'guide',voice,text].join(':');if(this.cache.has(key))return this.cache.get(key);return this.enqueue(async()=>{aborted(signal);if(this.cache.has(key))return this.cache.get(key);const response=await this.request({kind:'guide',text,voice},signal);const blob=await response.blob();aborted(signal);if(blob.size<=44)throw new Error('语音服务未返回音频。');const url=URL.createObjectURL(blob);this.cache.set(key,url);return url;});}
+ guideKey(text,voice){return [IDENTITY,'guide-preload-v1',voice,normalizePrompt(text)].join(':');}
+ async guide(text,signal,voice=DEFAULT_VOICE){
+  aborted(signal);text=normalizePrompt(text);const key=this.guideKey(text,voice);
+  if(this.cache.has(key))return this.cache.get(key);
+  // Prompts must not wait for film synthesis. A cancelled focus must not cancel
+  // the shared download needed by another focus or the background preloader.
+  if(!this.guideFlights.has(key)){
+   const flight=(async()=>{let blob=await readCache(key);
+    if(!(blob instanceof Blob)||blob.size<=44){const response=await this.request({kind:'guide',text,voice},AbortSignal.timeout(8000));blob=await response.blob();if(blob.size<=44)throw new Error('语音服务未返回音频。');void saveCache(key,blob);}
+    const url=URL.createObjectURL(blob);this.cache.set(key,url);return url;
+   })().finally(()=>this.guideFlights.delete(key));this.guideFlights.set(key,flight);
+  }
+  const flight=this.guideFlights.get(key);
+  if(!signal)return flight;
+  return new Promise((resolve,reject)=>{const cancel=()=>{signal.removeEventListener('abort',cancel);reject(new DOMException('已取消','AbortError'));};signal.addEventListener('abort',cancel,{once:true});flight.then(resolve,reject).finally(()=>signal.removeEventListener('abort',cancel));if(signal.aborted)cancel();});
+ }
+ warmGuides(texts,voice=DEFAULT_VOICE){
+  const priority=[];
+  for(const value of texts){if(!value?.trim()||value.length>400)continue;const text=normalizePrompt(value),key=this.guideKey(text,voice);
+   if(this.cache.has(key)||this.guideFlights.has(key)||(this.warmFailures.get(key)||0)>Date.now()||priority.some(x=>x.key===key))continue;
+   this.warmKeys.add(key);priority.push({text,voice,key});
+  }
+  const keys=new Set(priority.map(x=>x.key));this.warmQueue=[...priority,...this.warmQueue.filter(x=>!keys.has(x.key))];
+  const drain=()=>{while(this.warmActive<2&&this.warmQueue.length){const item=this.warmQueue.shift();this.warmActive++;
+   this.guide(item.text,undefined,item.voice).catch(()=>this.warmFailures.set(item.key,Date.now()+30000)).finally(()=>{this.warmKeys.delete(item.key);this.warmActive--;drain();});
+  }};drain();
+ }
  async narration(start,duration,settings,signal,film=defaultFilm){
   const voice=settings.voice||DEFAULT_VOICE;const key=[IDENTITY,film.id,film.scenePlanVersion,'narration',voice,start,duration,settings.speed,settings.density].join(':');
   if(this.cache.has(key))return this.cache.get(key);

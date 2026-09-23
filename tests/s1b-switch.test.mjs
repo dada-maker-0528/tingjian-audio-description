@@ -1,0 +1,111 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {defaultFilm} from '../public/catalog-config.js';
+import {createMediaBackend} from '../public/assistant/media-backend.js';
+import {makeContext,createSession,openDraft,applyInterpretation,compileDraft,beginRun,finishRun,acceptCandidate} from '../public/assistant/model.js';
+import {MEDIA_PLANS,stageVideo,stageCues} from '../public/stage-media.js';
+import {FIRST_SCENE_VOICE_PROMPT} from '../public/s1c-media.js';
+test('S1B proposal states its actual two changes, requires execution and adoption, and retains original',async t=>{
+ const oldWindow=globalThis.window,oldDocument=globalThis.document;t.after(()=>{globalThis.window=oldWindow;globalThis.document=oldDocument;});
+ globalThis.window={};globalThis.document={createElement(){return {duration:39.079,removeAttribute(){},load(){},set src(v){queueMicrotask(()=>this.onloadedmetadata?.());}};}};
+ const owner={id:'test-s1b',stage:'medium'},store={},service=createMediaBackend({run(){assert.fail('Mixed video must not call synthesis');}},{store,save(){},interpret:async()=>{throw new Error("offline test");}});
+ const ctx=makeContext(defaultFilm,'scene-s1',0,owner.id),session=createSession(owner.id,defaultFilm),draft=openDraft(session,ctx);
+ const a={origin:{film:defaultFilm,phase:'medium',taskId:owner.id},session,draft};
+ const proposal=await service.parse('人物说清楚一点',ctx,draft,a);assert.equal(proposal.patches.length,2);assert(proposal.notes.join('').includes('语速保持原样'));
+ applyInterpretation(draft,proposal,ctx);const plan=service.plan(compileDraft(session,draft,ctx),a);assert.equal(plan.valid,true);
+ assert.equal(stageVideo(defaultFilm,owner,store),defaultFilm.video);
+ const run=beginRun(draft,plan),result=await service.run(run,a);assert.equal(result.mediaKind,'video');assert.equal(result.candidates[0].audioGenerated,false);
+ assert(finishRun(session,draft,result));assert.equal(stageVideo(defaultFilm,owner,store),defaultFilm.video);
+ await service.accept(a,'scene-s1');acceptCandidate(session,'scene-s1');
+ assert.equal(stageVideo(defaultFilm,owner,store),MEDIA_PLANS[defaultFilm.id].revised.video);
+ assert.equal(stageVideo(defaultFilm,owner,store,{original:true}),defaultFilm.video);
+ assert(stageCues(defaultFilm,owner,store)[0].text.includes('哪吒和太乙'));
+});
+test('request to change speed is not silently replaced by S1B',async()=>{
+ const store={},service=createMediaBackend({}, {store,save(){},interpret:async()=>{throw new Error("offline test");}}),ctx=makeContext(defaultFilm,'scene-s1',0,'t'),session=createSession('t',defaultFilm),draft=openDraft(session,ctx),a={origin:{film:defaultFilm,phase:'medium',taskId:'t'}};
+ applyInterpretation(draft,await service.parse('旁白太慢，快一点',ctx,draft,a),ctx);
+ const plan=service.plan(compileDraft(session,draft,ctx),a);assert.equal(plan.valid,true);assert.equal(plan.mediaUnchanged,true);
+});
+test('default male-voice request plays and adopts the supplied S1C clip',async t=>{
+ const oldWindow=globalThis.window,oldDocument=globalThis.document;t.after(()=>{globalThis.window=oldWindow;globalThis.document=oldDocument;});
+ globalThis.window={};globalThis.document={createElement(){return {duration:39.066667,removeAttribute(){},load(){},set src(v){queueMicrotask(()=>this.onloadedmetadata?.());}};}};
+ const owner={id:'test-s1c',stage:'medium'},store={},service=createMediaBackend({run(){assert.fail('The supplied MP4 must be used directly');}},{store,save(){},interpret:async()=>{throw new Error('The mapped request should not need remote interpretation');}});
+ const ctx=makeContext(defaultFilm,'scene-s1',0,owner.id),session=createSession(owner.id,defaultFilm),draft=openDraft(session,ctx);
+ const a={origin:{film:defaultFilm,phase:'medium',taskId:owner.id},session,draft};
+ assert.equal(service.defaultInput(a),FIRST_SCENE_VOICE_PROMPT);
+ assert.equal(service.inputHint(a),FIRST_SCENE_VOICE_PROMPT);
+ assert.equal(service.inputHint({origin:{film:{...defaultFilm,mediaScene:'full'},phase:'watch'}}),'说说这段旁白哪里需要调整…');
+ const proposal=await service.parse(FIRST_SCENE_VOICE_PROMPT,ctx,draft,a);
+ assert.deepEqual(proposal.patches.map(p=>p.field),['voice_id','reference_mode','information_level']);
+ applyInterpretation(draft,proposal,ctx);
+ const plan=service.plan(compileDraft(session,draft,ctx),a);
+ assert.equal(plan.valid,true);assert.equal(plan.mediaUnchanged,false);
+ const run=beginRun(draft,plan),result=await service.run(run,a);
+ assert.equal(result.candidates[0].videoUrl,MEDIA_PLANS[defaultFilm.id].voiceRevision.video);
+ assert.equal(result.candidates[0].audioGenerated,false);
+ assert(finishRun(session,draft,result));
+ await service.accept(a,'scene-s1');acceptCandidate(session,'scene-s1');
+ assert.equal(stageVideo(defaultFilm,owner,store),MEDIA_PLANS[defaultFilm.id].voiceRevision.video);
+ assert.equal(stageVideo(defaultFilm,owner,store,{original:true}),defaultFilm.video);
+ assert.equal(stageCues(defaultFilm,owner,store)[0].text,'飞猪驮着哪吒和太乙，穿过云雾。');
+});
+test('S1B settings can advance to S1C with only the remaining voice change',async()=>{
+ const owner={id:'test-s1b-to-s1c',stage:'medium'},store={},service=createMediaBackend({}, {store,save(){},interpret:async()=>{throw new Error('offline test');}});
+ const ctx=makeContext(defaultFilm,'scene-s1',0,owner.id),session=createSession(owner.id,defaultFilm);
+ session.initial.reference_mode='每个动作点名';session.initial.information_level='精简';
+ const draft=openDraft(session,ctx),a={origin:{film:defaultFilm,phase:'medium',taskId:owner.id},session,draft};
+ applyInterpretation(draft,await service.parse(FIRST_SCENE_VOICE_PROMPT,ctx,draft,a),ctx);
+ const plan=service.plan(compileDraft(session,draft,ctx),a);
+ assert.deepEqual(plan.targets[0].changes.map(p=>p.field),['voice_id']);
+ assert.equal(plan.mediaUnchanged,false);
+});
+
+test('the opening excerpt plays the male clip for ten seconds and keeps it in the first full scene',async t=>{
+ const oldWindow=globalThis.window,oldDocument=globalThis.document;t.after(()=>{globalThis.window=oldWindow;globalThis.document=oldDocument;});
+ globalThis.window={};globalThis.document={createElement(){return {duration:39.066667,removeAttribute(){},load(){},set src(v){queueMicrotask(()=>this.onloadedmetadata?.());}};}};
+ const store={},owner={id:'test-short-male',stage:'short'},service=createMediaBackend({}, {store,save(){},interpret:async()=>{throw new Error('offline test');}});
+ const ctx=makeContext(defaultFilm,'scene-s1',0,owner.id),session=createSession(owner.id,defaultFilm),draft=openDraft(session,ctx);
+ const a={origin:{film:defaultFilm,phase:'short',taskId:owner.id},session,draft,context:ctx};
+ const proposal=await service.parse('换一个男生声音',ctx,draft,a);
+ assert.deepEqual(proposal.patches.map(p=>p.field),['voice_id','reference_mode','information_level']);
+ applyInterpretation(draft,proposal,ctx);
+ const plan=service.plan(compileDraft(session,draft,ctx),a);assert.equal(plan.mediaUnchanged,false);
+ const run=beginRun(draft,plan),result=await service.run(run,a),candidate=result.candidates[0];
+ assert.equal(candidate.videoUrl,MEDIA_PLANS[defaultFilm.id].voiceRevision.video);
+ assert.equal(candidate.end,MEDIA_PLANS[defaultFilm.id].previewSeconds);
+ assert(candidate.cues.every(c=>c.start<candidate.end));
+ assert(finishRun(session,draft,result));await service.accept(a,'scene-s1');acceptCandidate(session,'scene-s1');
+ assert.equal(stageVideo(defaultFilm,owner,store),candidate.videoUrl);
+ assert.equal(stageVideo(defaultFilm,{...owner,stage:'medium'},store),candidate.videoUrl);
+ assert.equal(stageVideo(defaultFilm,owner,store,{original:true}),defaultFilm.video);
+ assert.equal(stageCues(defaultFilm,owner,store)[0].text,MEDIA_PLANS[defaultFilm.id].voiceRevision.cues[0].text);
+});
+
+test('saved male settings cannot claim a female video is already male',()=>{
+ const store={},service=createMediaBackend({}, {store,save(){}}),ctx=makeContext(defaultFilm,'scene-s1',0,'stale-voice');
+ const session=createSession('stale-voice',defaultFilm,{voice:'yunzhou'}),draft=openDraft(session,ctx);
+ const a={origin:{film:defaultFilm,phase:'medium',taskId:'stale-voice'},session,context:ctx,draft};
+ service.syncMediaState(a);
+ assert.equal(session.initial.voice_id,'female');assert.equal(draft.base.voice_id,'female');assert.equal(draft.effective.voice_id,'female');
+ applyInterpretation(draft,{kind:'patch',patches:[{field:'voice_id',value:'male'}]},ctx);
+ service.syncS1VoiceDraft(a);
+ const plan=service.plan(compileDraft(session,draft,ctx),a);
+ assert.deepEqual(plan.targets[0].changes.map(p=>p.field),['voice_id','reference_mode','information_level']);
+ assert.equal(plan.mediaUnchanged,false);
+});
+
+test('an old accepted settings-only result is reopened as a real video change',()=>{
+ const store={},service=createMediaBackend({}, {store,save(){}}),ctx=makeContext(defaultFilm,'scene-s1',0,'old-result');
+ const session=createSession('old-result',defaultFilm),draft=openDraft(session,ctx);
+ const a={origin:{film:defaultFilm,phase:'medium',taskId:'old-result'},session,context:ctx,draft};
+ applyInterpretation(draft,{kind:'patch',patches:[{field:'voice_id',value:'male'}]},ctx);
+ const stale={id:'old-candidate',sceneId:'scene-s1',settings:{...draft.effective},mediaVersion:'retained-s1',videoUrl:defaultFilm.video,mediaUnchanged:true};
+ draft.status='result';draft.result={candidates:[stale]};session.candidates['scene-s1']=stale;session.accepted['scene-s1']=stale;
+ service.syncMediaState(a);service.syncS1VoiceDraft(a);
+ assert.equal(session.accepted['scene-s1'],undefined);
+ assert.equal(session.candidates['scene-s1'],undefined);
+ assert.equal(draft.status,'editing');
+ assert.equal(draft.result,null);
+ assert.equal(draft.base.voice_id,'female');
+ assert.equal(service.plan(compileDraft(session,draft,ctx),a).mediaUnchanged,false);
+});

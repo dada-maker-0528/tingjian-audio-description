@@ -1,9 +1,55 @@
 // Source excerpts explain the implementation; producer events report actual results.
 const snippets={
+"mixedRange":{
+  "source": "demo-progress.js",
+  "lines": [
+    "    const scenes=validateScenePlan(film);",
+    "    const clipEnd=start+duration;",
+    "    selectedScenes=scenes.filter(scene=>scene.start<clipEnd&&scene.end>start);",
+    "    node('mixedRange','读取已有成片的场景清单，确定这次试听的起止位置。',{",
+    "     source:'prebuilt_mixed_video',selected_scene_count:selectedScenes.length,",
+    "     total_scene_count:scenes.length,scene_ids:selectedScenes.map(scene=>scene.id),",
+    "     clip_start:start,clip_end:clipEnd,content_seconds:duration,",
+    "    });"
+  ]
+},
+"mixedMedia":{
+  "source": "task-progress.js",
+  "lines": [
+    "export function checkMedia(url,kind,signal,expectedDuration){",
+    " return new Promise((resolve,reject)=>{",
+    "  const media=document.createElement(kind);let timer;",
+    "  const finish=error=>{clearTimeout(timer);signal?.removeEventListener('abort',abort);media.onloadedmetadata=media.onerror=null;media.removeAttribute('src');media.load();error?reject(error):resolve();};",
+    "  const abort=()=>finish(new DOMException('已取消','AbortError'));",
+    "  if(signal?.aborted){abort();return;}",
+    "  signal?.addEventListener('abort',abort,{once:true});",
+    "  media.preload='metadata';media.onloadedmetadata=()=>finish(Number.isFinite(media.duration)&&media.duration>0&&(!Number.isFinite(expectedDuration)||Math.abs(media.duration-expectedDuration)<.15)?null:new Error('媒体时长无效或与对应版本不一致'));media.onerror=()=>finish(new Error('媒体读取失败'));",
+    "  timer=setTimeout(()=>finish(new DOMException('媒体读取超时','TimeoutError')),15000);media.src=url;",
+    " });",
+    "}"
+  ]
+},
+"mixedPlayback":{
+  "source": "demo-progress.js",
+  "lines": [
+    "    const playback={",
+    "     scene_count:selectedScenes.length,",
+    "     scene_ids:selectedScenes.map(scene=>scene.id),",
+    "     clip_start:start,",
+    "     clip_end:start+duration,",
+    "     content_seconds:duration,",
+    "     playback_rate:1,",
+    "     audio_source:'embedded_in_video',",
+    "     extra_narration:false,",
+    "     metadata_ready:metadataReady,",
+    "    };",
+    "    node('mixedPlayback','核对试听范围、原速播放和成片内置声音，再开放试听入口。',playback);"
+  ]
+},
   "presetMedia": {
     "source": "demo-progress.js",
     "lines": [
-      "node('presetMedia','先读取演示素材，再确认视频时长与媒体是否可用。',{source:'preset_demo',duration_seconds:film.duration});",
+      "node('presetMedia','读取当前素材，确认视频时长与媒体是否可用。',{source:'preset_demo',duration_seconds:film.duration});",
       "   await checkMedia(videoURL,'video',signal);log('已读取视频元数据',{metadata:'ready',playback_rate:1});"
     ]
   },
@@ -11,7 +57,7 @@ const snippets={
     "source": "demo-progress.js",
     "lines": [
       "if(!film.roles?.length)throw new Error('缺少人物预设');",
-      "   node('presetRoles','接下来载入预设人物，检查介绍文字与对应画面。',{source:'preset_roles',role_count:film.roles.length});",
+      "   node('presetRoles','载入人物资料，检查介绍文字与对应画面。',{source:'preset_roles',role_count:film.roles.length});",
       "   log('人物说明与对应画面已匹配',{introductions:film.roles.filter(r=>r.detail).length,portraits:film.roles.filter(r=>r.image).length});"
     ]
   },
@@ -35,7 +81,7 @@ const snippets={
     "source": "demo-progress.js",
     "lines": [
       "if(!film.narration)throw new Error('缺少旁白预设');",
-      "   node('presetTimeline','再按语速与描述量选取预设时间轴，准备进入人物介绍。',{narration_cues:cues.length,original_speed:1,analysis_source:'preset'});",
+      "   node('presetTimeline','按当前设置读取旁白时间轴，准备进入人物介绍。',{narration_cues:cues.length,original_speed:1,analysis_source:'preset'});",
       "   log('人物与试听入口已准备',{next:'role_introduction',requires_confirmation:true});"
     ]
   },

@@ -3,21 +3,32 @@ const ERRORS={
  'not-allowed':'未获得麦克风权限。请允许本网站使用麦克风后重试，也可以直接输入文字。',
  'service-not-allowed':'当前浏览器的语音识别服务不可用。请换用支持语音识别的浏览器，或直接输入文字。',
  'audio-capture':'无法读取麦克风。请检查设备是否可用，以及系统的麦克风权限。',
+ 'device-busy':'麦克风正被其他应用占用或暂时无法启动。请关闭其他录音应用后再按语音按钮，已输入文字会保留。',
  network:'语音识别服务连接失败。已保留文字，请检查网络后重试，或直接输入。',
  'no-speech':'没有识别到语音。可以按 O 重试，或直接输入文字。',
  aborted:'语音输入已停止，文字已保留。'
 };
 export const recognitionConstructor=()=>globalThis.SpeechRecognition||globalThis.webkitSpeechRecognition;
 export class VoiceInput{
- constructor({factory=()=>new LiveRecognition(),beforeStart=()=>{},onState=()=>{},onText=()=>{},onSubmit=()=>{},stopTimeout=30000,maxDuration=60000}={}){
+ constructor({factory=()=>new LiveRecognition(),beforeStart=()=>{},onState=()=>{},onText=()=>{},onSubmit=()=>{},stopTimeout=45000,maxDuration=60000}={}){
   Object.assign(this,{factory,beforeStart,onState,onText,onSubmit,stopTimeout,maxDuration});this.state='idle';this.serial=0;this.current=null;
  }
  get active(){return ['starting','listening','stopping'].includes(this.state);}
+ prepare({connect=false}={}){
+  if(this.active||this.retrySession)return;
+  try{
+   const recognition=this.prepared||(this.prepared=this.factory());
+   clearTimeout(this.prepareTimer);this.prepareTimer=setTimeout(()=>this.discardPrepared(),connect?20000:60000);
+   Promise.resolve(recognition?.prepare?.({connect})).catch(()=>{});
+  }catch{this.discardPrepared();}
+ }
+ discardPrepared(){clearTimeout(this.prepareTimer);this.prepared?.abort();this.prepared=null;}
  setState(state,message){this.state=state;this.onState(state,message);}
  start(prefix=''){
   if(this.active)return false;
   const retry=this.retrySession;this.retrySession=null;if(retry)prefix=retry.prefix;
-  let recognition;try{recognition=retry?.recognition||this.factory();}catch{recognition=null;}
+  let recognition;try{recognition=retry?.recognition||this.prepared||this.factory();}catch{recognition=null;}
+  clearTimeout(this.prepareTimer);this.prepared=null;
   if(!recognition){this.setState('error','当前浏览器不支持麦克风语音识别。请在支持此功能的浏览器中打开本站，也可以直接输入文字。');return false;}
   this.beforeStart();const id=++this.serial;
   const session={id,recognition,prefix:prefix.trim(),final:'',interim:'',send:false,failed:false};this.current=session;
@@ -30,7 +41,7 @@ export class VoiceInput{
    if(!alive())return;let final='',interim='';for(let i=0;i<event.results.length;i++){const result=event.results[i],words=result[0]?.transcript||'';if(result.isFinal)final+=words;else interim+=words;}
    session.final=final;session.interim=interim;this.onText(text(),{final:!interim,recording:true});
   };
-  recognition.onerror=event=>{if(!alive())return;session.failed=true;if(event.recordings?.length)this.retrySession={recognition,prefix:session.prefix};this.cleanup();this.onText(text(),{final:!session.interim,recording:false});this.setState('error',(event.message||ERRORS[event.error]||'语音识别失败。')+(this.retrySession?' 录音已保留，点击语音或按 O 重试识别，不用重说。':''));try{recognition.abort();}catch{}};
+  recognition.onerror=event=>{if(!alive())return;session.failed=true;if(event.recordings?.length)this.retrySession={recognition,prefix:session.prefix};this.cleanup();this.onText(text(),{final:!session.interim,recording:false});const deviceError=['not-allowed','audio-capture','device-busy'].includes(event.error);this.setState('error',(deviceError?ERRORS[event.error]:/[\u3400-\u9fff]/.test(event.message||'')?event.message:ERRORS[event.error]||'语音识别失败，请重试或输入文字。')+(this.retrySession?' 录音已保留，点击语音或按 O 重试识别，不用重说。':''));try{recognition.abort();}catch{}};
   recognition.onend=()=>{
    if(!alive())return;this.cleanup();const value=text();this.onText(value,{final:!session.interim,recording:false});
    if(session.interim.trim()){this.setState('error','部分识别文字尚未确认，未自动发送。请检查输入框中的文字，再按回车发送。');return;}

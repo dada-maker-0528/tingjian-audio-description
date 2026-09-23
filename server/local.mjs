@@ -1,3 +1,4 @@
+import {interpretAssistant} from '../backend/assistant-interpret.mjs';
 import http from 'node:http';
 import path from 'node:path';
 import {fileURLToPath,pathToFileURL} from 'node:url';
@@ -109,6 +110,11 @@ export function createLocalServer(){
           json(res,await startWorkflow(p,req.headers['x-voice'],{sceneFlow:req.headers['x-scene-flow']==='1'}));
         }catch(error){await handle.close().catch(()=>{});if(!projects.has(id))await unlink(file).catch(()=>{});throw error;}finally{uploads.delete(requestId);}
         return;
+      }
+      if(url.pathname==='/api/assistant/interpret'&&req.method==='POST'){
+        const controller=new AbortController();res.on('close',()=>controller.abort());
+        const input=await readJSON(req,50_000),signal=AbortSignal.any([controller.signal,AbortSignal.timeout(25000)]);
+        const result=await interpretAssistant(input,signal);if(!res.destroyed)json(res,result);return;
       }
       if(url.pathname==='/api/assistant/context'&&req.method==='POST'){json(res,await assistantContext(await readJSON(req)));return;}
       if(url.pathname==='/api/assistant/voice'&&req.method==='POST'){json(res,await assistantVoice(await readJSON(req,30_000_000)));return;}

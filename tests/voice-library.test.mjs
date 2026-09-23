@@ -1,8 +1,15 @@
 import test from 'node:test';import assert from 'node:assert/strict';
 import {newTask,confirmStage,changeNarrationVoice,canComplete} from '../public/flow.js';
-import {mergePublicLibrary,visibleLibrary} from '../public/library.js';
+import {mergePublicLibrary,visibleLibrary,isListedVideo} from '../public/library.js';
 import {validateInput,handleTTS} from '../server/worker.mjs';
 import {sceneFilm} from './fixtures/scene-film.mjs';
+test('withdrawn QA entries stay hidden even under saved aliases while new uploads remain visible',()=>{
+ const id='954ddbca-fa85-405d-9b97-6e3e0778a626';
+ for(const item of [{id},{id:'uploaded-'+id},{assetId:'upload-'+id},{sourceProjectId:id}])assert.equal(isListedVideo(item),false);
+ const items=[{id:'regular',title:'创业之路'},{id:'uploaded-'+id,title:'旧设备保存的测试别名'},{id:'new-upload',title:'我的新视频'}];
+ assert.deepEqual(visibleLibrary(items,{all:true}).map(x=>x.id),['regular','new-upload']);
+ assert.deepEqual(visibleLibrary(items,{all:true,query:'测试别名'}),[]);
+});
 test('changing a voice requires confirming the current scene batch again',()=>{const task=newTask(sceneFilm);confirmStage(task);confirmStage(task);changeNarrationVoice(task,'yunzhou');assert.equal(task.confirmedSceneCount,0);assert.equal(task.confirmed.voice,'vivi');assert.equal(canComplete(task),false);assert.equal(confirmStage(task),'full');assert(canComplete(task));assert.equal(task.confirmed.voice,'yunzhou');assert.equal(task.confirmedSceneCount,3);});
 test('unsupported speakers cannot reach the synthesis service',()=>{assert.throws(()=>validateInput({kind:'guide',text:'你好',voice:'arbitrary-cloned-voice'}));});
 test('selected voice is passed to synthesis and reflected in response',async()=>{let used;const r=await handleTTS(new Request('https://demo.test/api/tts',{method:'POST',headers:{'Content-Type':'application/json','X-Tingjian-Request':'1'},body:JSON.stringify({kind:'guide',text:'你好',voice:'xiaohe'})}),{},async()=>({synthesize:async(_,__,voice)=>{used=voice;return new Uint8Array(48000);},close(){}}));assert.equal(r.status,200);assert.equal(used,'xiaohe');assert.equal(r.headers.get('X-TTS-Voice'),'xiaohe');});

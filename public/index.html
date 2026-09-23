@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
   <meta name="theme-color" content="#ffffff">
-  <title>智享视界 · AI 口述影像</title>
+  <title>听见 · AI 口述影像</title>
   <meta name="description" content="产品大王队出品。为视障用户讲述画面中的人物、动作与细节，让故事不止于看见。">
   <link rel="icon" type="image/svg+xml" href="assets/tingjian-mark.svg">
   <link rel="stylesheet" href="styles.css">
@@ -12,15 +12,16 @@
   <link rel="stylesheet" href="prompt-library.css">
   <link rel="stylesheet" href="revision-editor.css">
   <link rel="stylesheet" href="opening.css">
+  <link rel="stylesheet" href="project-about.css">
 </head>
 <body>
   <a class="skip-link" href="#main">跳到主要内容</a>
   <header class="site-header">
-    <button class="brand" data-action="home" data-focus-label="返回智享视界项目介绍" aria-label="听见标志，返回智享视界项目介绍"><span class="brand-mark" aria-hidden="true"><img src="assets/tingjian-mark.svg" alt="" draggable="false"></span><span><span class="brand-wordmark" aria-hidden="true">听见<img src="assets/tingjian-wordmark.svg" alt="" draggable="false"></span><span class="brand-sub">AI 口述影像</span></span></button>
-    <nav class="main-nav" aria-label="主要导航"><button data-action="home" class="active">项目介绍</button><button data-action="library">我的视频</button><button data-action="prompt-library">提示词库</button></nav>
+    <button class="brand" data-action="home" data-focus-label="返回听见开屏" aria-label="听见标志，返回听见开屏"><span class="brand-mark" aria-hidden="true"><img src="assets/tingjian-mark.svg" alt="" draggable="false"></span><span><span class="brand-wordmark" aria-hidden="true">听见<img src="assets/tingjian-wordmark.svg" alt="" draggable="false"></span><span class="brand-sub">AI 口述影像</span></span></button>
+    <nav class="main-nav" aria-label="主要导航"><button data-action="about">项目介绍</button><button data-action="library">我的视频</button><button data-action="prompt-library">提示词库</button></nav>
     <div class="header-actions"><button class="text-btn guide-toggle" data-action="settings" data-focus-label="语音设置" aria-label="语音、音色与快捷键设置"><span data-icon="volume"></span><span>语音设置</span><span class="small-pill" id="guide-status">未开启</span></button><span class="header-divider"></span><button class="text-btn" data-action="help" aria-label="操作帮助"><span data-icon="help"></span><span class="help-label">操作帮助</span></button></div>
   </header>
-  <div class="demo-notice"><span data-icon="info"></span><span>示例影片 · 旁白修改连接真实服务</span><span class="notice-right">本地配音</span></div>
+  <div class="demo-notice"><span data-icon="info"></span><span>听见人物、动作与故事</span><span class="notice-right">本地配音</span></div>
   <main id="main" tabindex="-1"></main>
   <footer class="site-footer"><div><button class="text-btn" data-action="repeat-guide"><span data-icon="volume"></span>再听提示</button><button class="text-btn" data-action="stop-guide">停止提示</button></div></footer>
   <div id="status" role="status" aria-live="polite" class="sr-only"></div><div id="toast" class="toast" hidden></div>
@@ -29,6 +30,6 @@
   <aside id="chat" class="assistant-drawer" aria-labelledby="chat-title" hidden></aside>
   <input type="file" id="file-input" accept="video/*" hidden>
   <audio id="narration" preload="none"></audio><audio id="guide-audio" preload="none"></audio>
-  <script type="module" src="app.js"></script>
+  <script type="module" src="presentation-shell.js"></script>
 </body>
 </html>

@@ -4,6 +4,7 @@ import path from 'node:path';
 import {save,projectDir,projects,assetUrl} from './store.mjs';
 import {pipeline,cancelJob,registerUpload} from './service.mjs';
 import {identifyRoles,transcribe} from './ai.mjs';
+import {groundedSceneTitle} from './scene-titles.mjs';
 import {trimVideo,run,ffmpeg,probe} from './media.mjs';
 import {renderNarration} from './narration.mjs';
 import {newWorkflow,sampleRange,nextStage,feedbackChange,newVersion} from './workflow-state.mjs';
@@ -20,7 +21,7 @@ export function projectView(p){
   const w=structuredClone(p.workflow);
   if(w)w.roles=(w.roles||[]).map(r=>{const {evidenceFile,...rest}=r;return {...rest,evidenceUrl:evidenceFile?assetUrl(p,evidenceFile):null};});
   for(const v of [w?.current,...(w?.history||[])])if(v){delete v.inFlight;v.parts=v.parts.map(({start,end})=>({start,end}));}
-  return {id:p.id,title:p.title,duration:p.duration,sourceUrl:assetUrl(p,p.source),posterUrl:p.poster?assetUrl(p,p.poster):null,scenes:(p.scenes||[]).map(({id,title,start,end,facts,category})=>({id,title,start,end,facts,category})),hasAudio:p.hasAudio,updatedAt:p.updatedAt,workflow:w,promptRevision:p.promptProfile?.revision||null,provenance:'uploaded'};
+  return {id:p.id,title:p.title,duration:p.duration,sourceUrl:assetUrl(p,p.source),posterUrl:p.poster?assetUrl(p,p.poster):null,scenes:(p.scenes||[]).map(s=>({id:s.id,title:groundedSceneTitle(s,p.transcript),start:s.start,end:s.end,facts:s.facts,category:s.category})),hasAudio:p.hasAudio,updatedAt:p.updatedAt,workflow:w,promptRevision:p.promptProfile?.revision||null,provenance:'uploaded'};
 }
 async function report(p,message){const w=p.workflow;if(w.message!==message){w.message=message;w.events.push({at:now(),message});w.events=w.events.slice(-80);await save(p);}}
 async function progress(p,type,stage,message,id=`${stage}:${type}`,code){

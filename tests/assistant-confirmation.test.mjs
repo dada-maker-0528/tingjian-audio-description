@@ -10,6 +10,17 @@ function setup(){
  Object.assign(assistant,{session,context,draft:openDraft(session,context),origin:{film,canContinue:false},voice:{active:false},parseId:0,busy:false,mode:'ordinary',render:id=>focus.push(id),notify:(message,event)=>notices.push({message,event}),hooks:{stop(){},save(){},onStart(){},onResult(){},onFailure(){},onAccepted:(...args)=>accepted.push(args)}});
  return {assistant,notices,focus,accepted};
 }
+test('canceling a failed adjustment restores its baseline and preserves accepted audio',async()=>{
+ const {assistant:a,focus}=setup();
+ a.session.accepted[a.context.sceneId]={id:'accepted-audio',settings:a.draft.base};
+ editDraft(a.draft,[{field:'speech_rate',value:1.15}],a.context);
+ a.draft.status='failed';a.draft.error='No narration space';a.draft.input='retry note';
+ const accepted=JSON.stringify(a.session.accepted);
+ await a.action('cancel-adjustment');
+ assert.equal(a.draft.status,'editing');assert.equal(a.draft.error,null);assert.equal(a.draft.input,'');
+ assert.deepEqual(a.draft.effective,a.draft.base);assert.equal(JSON.stringify(a.session.accepted),accepted);
+ assert.equal(focus.at(-1),'assistant-input');
+});
 test('sending requirements explains the compiled proposal and waits for explicit execution',async()=>{
  const {assistant:a,notices,focus}=setup();
  await a.generate('旁白慢一点，动作讲细一点，后面也这样');

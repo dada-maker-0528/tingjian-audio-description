@@ -1,3 +1,4 @@
+import {hasStageMedia,extensionReady,secondSceneReady,assembledMediaReady} from './stage-media.js';
 import {DEFAULT_VOICE,isVoice} from './voices.js';
 import {validateScenePlan} from './scene-plan.js';
 export const defaults = () => ({speed:'normal',gain:0.88,density:'balanced',voice:DEFAULT_VOICE});
@@ -10,13 +11,16 @@ export function changeNarrationVoice(task,voice){
  if(task.stage==='full-review'){task.renderedVersion=null;task.confirmed=null;}
  task.updated=Date.now();return true;
 }
-export function newTask(film){const totalScenes=validateScenePlan(film).length;return {id:'film-'+Date.now(),assetId:film.id,title:film.title+' · 我的口述版',stage:'roles',version:1,candidate:defaults(),confirmed:null,scenePlanVersion:film.scenePlanVersion,totalScenes,sceneCount:1,confirmedSceneCount:0,completed:false,saved:false,chat:[],updated:Date.now()};}
+export function newTask(film){const totalScenes=validateScenePlan(film).length;return {id:'film-'+Date.now(),mediaPlan:hasStageMedia(film),assetId:film.id,title:film.title+' · 我的口述版',stage:'roles',version:1,candidate:defaults(),confirmed:null,scenePlanVersion:film.scenePlanVersion,totalScenes,sceneCount:1,confirmedSceneCount:0,completed:false,saved:false,chat:[],updated:Date.now()};}
 export function migrateTaskToScenes(task,film){
  if(!task||task.completed)return task;
- const totalScenes=validateScenePlan(film).length;
- if(task.scenePlanVersion===film.scenePlanVersion&&['roles','short','medium','full'].includes(task.stage))return {...task,totalScenes,sceneCount:Math.max(1,Math.min(totalScenes,Number(task.sceneCount)||1))};
+ const totalScenes=task.mediaScene==='s2'?2:validateScenePlan(film).length;
+ if(task.scenePlanVersion===film.scenePlanVersion&&['roles','short','medium','full'].includes(task.stage)){
+  const mediaPlan=hasStageMedia(film);
+  return {...task,mediaPlan,totalScenes,sceneCount:Math.max(1,Math.min(totalScenes,Number(task.sceneCount)||1)),confirmedSceneCount:mediaPlan&&task.stage==='medium'&&task.mediaScene!=='s2'?0:task.confirmedSceneCount};
+ }
  const {mediumEdited,mediumConfirmedVersion,verifiedVersion,...kept}=task;
- return {...kept,stage:task.stage==='roles'?'roles':'short',version:(Number(task.version)||1)+1,scenePlanVersion:film.scenePlanVersion,totalScenes,sceneCount:1,confirmedSceneCount:0,confirmed:null,sceneMigrationNotice:'制作已更新为按完整场景确认，保留你的旁白设置，请先试听第一个场景。'};
+ return {...kept,mediaPlan:hasStageMedia(film),stage:task.stage==='roles'?'roles':'short',version:(Number(task.version)||1)+1,scenePlanVersion:film.scenePlanVersion,totalScenes,sceneCount:1,confirmedSceneCount:0,confirmed:null,sceneMigrationNotice:'制作已更新为按完整场景确认，保留你的旁白设置，请先试听第一个场景。'};
 }
 export function confirmStage(task,direction='full'){
   if(task.completed)throw new Error('这个任务已经完成。');
@@ -24,9 +28,15 @@ export function confirmStage(task,direction='full'){
   if(stage==='roles'){task.sceneCount=1;task.stage='short';return 'short';}
   if(stage==='short'||stage==='medium'){
     if(!Number.isInteger(task.sceneCount)||task.sceneCount<1||task.sceneCount>task.totalScenes)throw new Error('当前场景范围不正确，请重新选择视频。');
-    task.confirmed={...task.candidate,version:task.version};
-    task.confirmedSceneCount=task.sceneCount;
-    if(stage==='short'&&task.totalScenes>1){task.sceneCount=Math.min(3,task.totalScenes);task.stage='medium';return 'medium';}
+    if(task.mediaPlan&&stage==='medium'&&task.mediaScene!=='s2'){
+     if(!secondSceneReady({id:task.assetId}))throw new Error('下一个场景的视频还未就绪。');
+     task.confirmed={...task.candidate,version:task.version};task.confirmedSceneCount=1;
+     task.mediaScene='s2';task.totalScenes=2;task.sceneCount=2;return 'medium';
+    }
+    if(task.mediaPlan&&stage==='medium'&&!assembledMediaReady({id:task.assetId}))throw new Error('完整成片还在准备中，当前场景已保留。');
+    task.confirmed=task.mediaPlan&&stage==='short'?null:{...task.candidate,version:task.version};
+    task.confirmedSceneCount=task.mediaPlan&&stage==='short'?0:task.sceneCount;
+    if(stage==='short'&&(task.mediaPlan||task.totalScenes>1)){task.sceneCount=Math.min(3,task.totalScenes);task.stage='medium';return 'medium';}
     if(stage==='medium'&&direction==='next'&&task.sceneCount<task.totalScenes){task.sceneCount++;return 'medium';}
     task.stage='full';return 'full';
   }

@@ -15,8 +15,9 @@ export function acceptedFor(session,context){
  return settings;
 }
 const baseFor=(session,context)=>clone(session.candidates[context.sceneId]?.settings||acceptedFor(session,context));
+export function isAcceptedResult(session,draft){const candidates=draft?.result?.candidates;return draft?.status==='result'&&!!candidates?.length&&candidates.every(c=>session.accepted[c.sceneId]?.id===c.id);}
 export function openDraft(session,context,{fresh=false}={}){
- const prior=session.drafts[context.sceneId];if(prior&&!fresh)return prior;
+ const prior=session.drafts[context.sceneId];if(prior&&!fresh&&!isAcceptedResult(session,prior))return prior;
  const base=baseFor(session,context),baseVersion=session.candidates[context.sceneId]?.id||session.accepted[context.sceneId]?.id||'original';
  const scope=session.candidates[context.sceneId]?.scope==='current_and_following'?'current_and_following':'current';
  const d={taskId:session.taskId,sceneId:context.sceneId,baseVersion,base,effective:clone(base),revision:0,status:'editing',scope,targetIds:[context.sceneId],history:prior?.history||[],undo:[],clarification:null,input:'',result:null,run:null,error:null};

@@ -18,7 +18,7 @@ export function assistantKeyAction(event,{enabled=true,editable=false,inputFocus
  if(enabled&&(String(event.key).toLowerCase()==='o'||event.code==='KeyO')&&(!editable||recording||inputFocused&&(inputEmpty||retryReady)))return recording?'finish':'voice';
  return null;
 }
-export function spokenChanges(plan,{full=false,characters=[],real=false}={}){
+export function spokenChanges(plan,{full=false,characters=[],real=false,video=false}={}){
  if(plan.valid===false)return (plan.errors||[]).join(' ');
  const changes=plan.changes||[];
  if(!changes.length)return '当前没有待执行的修改，可以继续描述你的要求。';
@@ -39,11 +39,13 @@ export function spokenChanges(plan,{full=false,characters=[],real=false}={}){
  });
  const targets=plan.targets||[],names=targets.map(t=>`${t.number?'场景 '+t.number:''}“${t.title}”`).join('、');
  const scope=plan.scope==='current_and_following'?`先改${names}，满意后后续场景沿用。`:`只改${names}。`;
- return `我准备这样调整：${list.join('，')}。${scope}原片画面和原声保持不变。\n是否按这个方案生成${real?'新配音':'模拟结果'}？选择“确认执行”，或继续补充要求。`;
+ return `我准备这样调整：${list.join('，')}。${scope}原片画面和原声保持不变。\n是否按这个方案${video?plan.mediaUnchanged?'准备视频供试听':'准备新版视频':'生成'+(real?'新配音':'模拟结果')}？选择“确认执行”，或继续补充要求。`;
 }
 export function resultGuidance(result,{canContinue=false,acceptedIds=[]}={}){
  const items=result?.candidates||[],remaining=items.filter(c=>!acceptedIds.includes(c.id)).length;
  const next=canContinue?'满意并继续':'满意并完成';
+ if(items.length&&items.every(c=>c.mediaUnchanged))return `修改意见已记录，当前视频已就绪，可以试听。满意后选择“${next}”，继续后续制作。`;
+ if(result?.mediaKind==='video')return `${items.length} 个场景的新版本已就绪。请试听，有问题选择“继续修改”，满意后采用。原版保留。`;
  if(result?.mediaKind==='audio')return `${items.length} 个场景的新配音已生成。请试听，有问题选择“继续修改”，满意后采用。原版保留。`;
  return `${items.length} 个场景的模拟方案已就绪，尚未生成新配音。请检查文案与参数：有问题选择“继续修改”；${items.length>1&&remaining?`满意的场景选择“确认这个场景的方案”，全部确认后选择“${next}”。`:`满意则选择“${next}”。`}`;
 }

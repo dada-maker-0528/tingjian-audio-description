@@ -29,7 +29,7 @@ export class FocusReader{
    if(this.audioSource){
     this.abort=new AbortController();this.render(label,'pending');
     try{const src=await this.audioSource(label,this.abort.signal);if(token!==this.sequence||el!==document.activeElement||!this.enabled())return;
-     if(src){this.audio.src=src;this.audio.playbackRate=this.rate();this.audio.onended=()=>{if(token===this.sequence)this.render(label,'idle');};this.audio.onerror=()=>{if(token===this.sequence)this.render(label,'unavailable');};await this.audio.play();this.render(label,'speaking');return;}
+     if(src){this.audio.src=src;this.audio.playbackRate=this.rate();this.audio.onended=()=>{if(token===this.sequence)this.render(label,'idle');};this.audio.onerror=()=>{if(token===this.sequence)this.render(label,'unavailable');};await this.audio.play();if(token!==this.sequence)return;this.render(label,'speaking');if(this.status){this.status.dataset.spokenLabel=label;this.status.dataset.spokenRate=String(this.rate());}return;}
     }catch{if(token!==this.sequence)return;}
    }
    if(!window.speechSynthesis){this.render(label,'unavailable');return;}
@@ -39,7 +39,7 @@ export class FocusReader{
    utterance.onend=()=>{if(token===this.sequence){this.activeUtterance=null;this.render(label,'idle');}};
    utterance.onerror=()=>{if(token===this.sequence){this.activeUtterance=null;this.render(label,'unavailable');}};
    window.speechSynthesis.speak(utterance);
-  },70);
+  },0);
  }
  render(label,state){if(!this.status)return;this.status.hidden=false;this.status.dataset.state=state;this.status.textContent=state==='unavailable'?'按钮语音暂未开始，可在语音设置中重试。':'当前焦点：'+label;}
 }

@@ -42,7 +42,7 @@ test('interim words replace previous hypotheses and retain original input',()=>{
 test('abort ignores late speech events',()=>{
  const r=new LiveRecognition();let events=0;r.onresult=()=>events++;r.abort();r.accept({type:'transcript',id:'late',text:'过期',final:true});assert.equal(events,0);
 });
-test('connection failure retains audio and prefix for retry',()=>{
+test('connection failure keeps recording for automatic fallback',()=>{
  const r=new LiveRecognition();r.start=()=>r.onstart();const voice=new VoiceInput({factory:()=>r});voice.start('已有要求');
- r.saved=[new Blob(['audio'])];r.fail('连接中断');assert.equal(voice.state,'error');assert.equal(voice.retrySession.recognition,r);assert.equal(voice.retrySession.prefix,'已有要求');assert.equal(r.saved.length,1);
+ try{r.saved=[new Blob(['audio'])];r.fail('连接中断');assert.equal(voice.state,'listening');assert.equal(voice.current.prefix,'已有要求');assert.equal(r.saved.length,1);assert(r.realtimeFailure);}finally{voice.cancel();}
 });

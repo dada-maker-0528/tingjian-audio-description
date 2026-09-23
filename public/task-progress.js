@@ -2,6 +2,8 @@
 import {taskSnippet,allTaskSnippets} from './task-code.js';
 // All illustrative code is tokenized once, before any task starts.
 export const TASK_TIMING=Object.freeze({stageMs:1800,logMs:140,codeMs:90,codeBatch:3,blockHoldMs:360,pauseMs:120,finishMs:700,timeoutMs:120000});
+// Preset media is checked independently; only its on-screen presentation is shortened.
+export const MEDIA_TIMING=Object.freeze({...TASK_TIMING,stageMs:420,logMs:20,codeMs:20,blockHoldMs:40,pauseMs:20,finishMs:180});
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const codeHTML=new Map(allTaskSnippets().flatMap(s=>s.lines.map(line=>[line,highlightCode(line)])));
 export class ProgressQueue{
@@ -46,7 +48,7 @@ export function expandTaskEvent(event,timing=TASK_TIMING){
  if(snippet||event.code)events.at(-1).blockEnd=true;
  return events;
 }
-export function createTaskProgress(root,{steps,mode='live',completeLabel='样片已准备好',onReady=()=>{},onComplete=()=>{},onRetry,timing=TASK_TIMING}={}){
+export function createTaskProgress(root,{steps,mode='live',completeLabel='样片已准备好',nextLabel='进入下一步',onReady=()=>{},onComplete=()=>{},onRetry,timing=mode==='media'?MEDIA_TIMING:TASK_TIMING}={}){
  const queue=new ProgressQueue(steps.length,timing),controller=new AbortController();let timer,finishTimer,disposed=false,continued=false,paused=false,lastStatus='',rows=0,resolveDone,scrollFrame=0,scrollTarget=null,lastEventAt=Date.now();
  const done=new Promise(resolve=>resolveDone=resolve);let executionFinished=false,pausedProgressTarget=null;
  const replays=new Map();
@@ -68,7 +70,7 @@ export function createTaskProgress(root,{steps,mode='live',completeLabel='样片
   },queue.timing.codeMs)};
   replays.set(row,replay);
  }
- root.innerHTML=`<section class="task-progress" aria-label="分阶段任务进度"><div class="task-progress-meta"><span>${mode==='demo'?'Demo · 预设演示事件':mode==='hybrid'?'预设样片 · 旁白资源检查':'实际任务记录'}</span><span data-task-count>准备开始</span></div><div class="progress-track" role="progressbar" aria-label="阶段完成进度" aria-valuemin="0" aria-valuemax="${steps.length}" aria-valuenow="0"><div class="progress-fill"></div></div><ol class="task-steps" aria-label="逐步展开的执行过程"></ol><p class="task-status" role="status" aria-live="polite" aria-atomic="true"></p><button type="button" class="btn task-retry" hidden>重试当前阶段</button></section>`;
+ root.innerHTML=`<section class="task-progress${mode==='media'?' task-progress-fast':''}" aria-label="分阶段任务进度"><div class="task-progress-meta"><span>${mode==='media'?'视频准备 · 资源检查':mode==='demo'?'Demo · 预设演示事件':mode==='hybrid'?'预设样片 · 旁白资源检查':'实际任务记录'}</span><span data-task-count>准备开始</span></div><div class="progress-track" role="progressbar" aria-label="阶段完成进度" aria-valuemin="0" aria-valuemax="${steps.length}" aria-valuenow="0"><div class="progress-fill"></div></div><ol class="task-steps" aria-label="逐步展开的执行过程"></ol><p class="task-status" role="status" aria-live="polite" aria-atomic="true"></p><button type="button" class="btn task-retry" hidden>重试当前阶段</button></section>`;
  const q=s=>root.querySelector(s),status=message=>{if(lastStatus!==message){lastStatus=message;q('.task-status').textContent=message;}};
  const finishPresentation=()=>{
   clearTimeout(finishTimer);
@@ -76,7 +78,7 @@ export function createTaskProgress(root,{steps,mode='live',completeLabel='样片
    if(disposed||paused)return;
    q('.task-progress').dataset.complete='true';status(completeLabel);
    q('.task-continue').hidden=false;onReady();
-  },matchMedia('(prefers-reduced-motion: reduce)').matches?0:2000);
+  },matchMedia('(prefers-reduced-motion: reduce)').matches?0:mode==='media'?queue.timing.finishMs:2000);
  };
  function paint(){
   queue.states.forEach((state,i)=>{
@@ -107,7 +109,7 @@ export function createTaskProgress(root,{steps,mode='live',completeLabel='样片
   const frame=now=>{
    scrollFrame=0;if(disposed||paused||!root.isConnected||scrollTarget?.dataset.follow==='false')return;
    const el=scrollTarget,target=Math.max(0,el.scrollHeight-el.clientHeight),distance=target-el.scrollTop;
-   el.scrollTop=Math.abs(distance)<1||matchMedia('(prefers-reduced-motion: reduce)').matches?target:el.scrollTop+distance*Math.min(1,(now-previous)/85);
+   el.scrollTop=Math.abs(distance)<1||matchMedia('(prefers-reduced-motion: reduce)').matches?target:el.scrollTop+distance*Math.min(1,(now-previous)/(mode==='media'?35:85));
    previous=now;if(Math.abs(target-el.scrollTop)>1)scrollFrame=requestAnimationFrame(frame);
   };scrollFrame=requestAnimationFrame(frame);
  }
@@ -158,8 +160,14 @@ export function createTaskProgress(root,{steps,mode='live',completeLabel='样片
   }
  };
  timer=setInterval(tick,20);
- const next=document.createElement('button');next.type='button';next.className='btn primary task-continue';next.hidden=true;next.textContent='进入下一步';q('.task-progress').append(next);
+ const next=document.createElement('button');next.type='button';next.className='btn primary task-continue';next.hidden=true;next.innerHTML=`${esc(nextLabel)} <kbd>空格</kbd>`;q('.task-progress').append(next);
  next.onclick=()=>{if(disposed||continued||next.hidden||queue.terminal!=='done')return;continued=true;next.disabled=true;resolveDone(true);onComplete();};
+ document.addEventListener('keydown',event=>{
+  if(disposed||!root.isConnected||next.hidden||next.disabled||document.querySelector('dialog[open]')||event.defaultPrevented||event.isComposing||event.repeat||event.ctrlKey||event.altKey||event.metaKey||event.shiftKey)return;
+  if(event.code!=='Space'&&event.key!==' ')return;
+  if(event.target.closest('input,textarea,select,button,summary,a,video,.task-inline-stream,[contenteditable="true"],[role="slider"]'))return;
+  event.preventDefault();event.stopImmediatePropagation();next.click();
+ },{signal:controller.signal,capture:true});
  q('.task-retry').onclick=()=>onRetry?.();
  return {
   signal:controller.signal,done,
@@ -202,14 +210,14 @@ export async function runTaskPlan(view,tasks){
  }catch(error){if(!signal.aborted)view.fail(error.name==='TimeoutError'?'处理超时，已保留设置，请重试当前阶段。':'本次处理未完成，请检查网络或语音服务后重试。',stage);return false;}
 }
 
-export function checkMedia(url,kind,signal){
+export function checkMedia(url,kind,signal,expectedDuration){
  return new Promise((resolve,reject)=>{
   const media=document.createElement(kind);let timer;
   const finish=error=>{clearTimeout(timer);signal?.removeEventListener('abort',abort);media.onloadedmetadata=media.onerror=null;media.removeAttribute('src');media.load();error?reject(error):resolve();};
   const abort=()=>finish(new DOMException('已取消','AbortError'));
   if(signal?.aborted){abort();return;}
   signal?.addEventListener('abort',abort,{once:true});
-  media.preload='metadata';media.onloadedmetadata=()=>finish(Number.isFinite(media.duration)&&media.duration>0?null:new Error('媒体时长无效'));media.onerror=()=>finish(new Error('媒体读取失败'));
+  media.preload='metadata';media.onloadedmetadata=()=>finish(Number.isFinite(media.duration)&&media.duration>0&&(!Number.isFinite(expectedDuration)||Math.abs(media.duration-expectedDuration)<.15)?null:new Error('媒体时长无效或与对应版本不一致'));media.onerror=()=>finish(new Error('媒体读取失败'));
   timer=setTimeout(()=>finish(new DOMException('媒体读取超时','TimeoutError')),15000);media.src=url;
  });
 }

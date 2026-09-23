@@ -1,5 +1,10 @@
 // Recognition-compatible adapter: actual ASR results feed the upstream composer.
 // Silence boundaries trigger transcription without an extra user click.
+export async function acquireMicrophone(mediaDevices=globalThis.navigator?.mediaDevices){
+ if(!mediaDevices?.getUserMedia)throw new DOMException('当前浏览器无法使用麦克风，请使用 HTTPS 地址和新版 Chrome 或 Edge。','NotFoundError');
+ try{return await mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true,autoGainControl:true}});}
+ catch(error){if(!['OverconstrainedError','NotReadableError','AbortError'].includes(error.name))throw error;return mediaDevices.getUserMedia({audio:true});}
+}
 export function pcmWav(chunks,sampleRate){
  const size=chunks.reduce((n,c)=>n+c.length,0),pcm=new Float32Array(size);let at=0;
  for(const chunk of chunks){pcm.set(chunk,at);at+=chunk.length;}
@@ -11,21 +16,29 @@ export function pcmWav(chunks,sampleRate){
 }
 export class ServerRecognition{
  constructor(){this.results=[];this.jobs=[];this.saved=[];this.cancelled=false;this.chunks=[];this.preRoll=[];this.samples=0;this.silent=0;this.voiced=false;this.failure=null;this.finishing=false;}
- async start(){
+ prepare(){
+  if(this.preparation)return this.preparation;
   this.abortController=new AbortController();
+  this.preparation=(async()=>{
+   const status=fetch('/api/asr/status',{signal:AbortSignal.any([this.abortController.signal,AbortSignal.timeout(5000)])}).then(r=>r.json()).then(s=>{if(!s.data?.configured)throw new Error('语音识别服务尚未配置，请联系维护者连接 ASR。');});
+   const audio=(async()=>{this.audio=new AudioContext();if(this.audio.state==='running')await this.audio.suspend();await this.audio.audioWorklet.addModule('/assistant/pcm-capture.js');})();
+   await Promise.all([status,audio]);if(this.cancelled)throw new DOMException('已取消','AbortError');
+  })().catch(error=>{this.preparation=null;this.audio?.close().catch(()=>{});this.audio=null;throw error;});
+  return this.preparation;
+ }
+ async start(){
   try{
-   const status=await fetch('/api/asr/status',{signal:this.abortController.signal}).then(r=>r.json());
-   if(!status.data?.configured)throw new Error('语音识别服务尚未配置，请联系维护者连接 ASR。');
-   if(this.cancelled)return;
-   this.stream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true,autoGainControl:true}});
-   if(this.cancelled){this.release();return;}
-   this.audio=new AudioContext();await this.audio.audioWorklet.addModule('/assistant/pcm-capture.js');
+   this.captureRequested=true;
+   const microphone=acquireMicrophone().then(stream=>{
+    if(this.cancelled||!this.captureRequested){stream.getTracks().forEach(t=>t.stop());return;}this.stream=stream;
+   });
+   await Promise.all([this.prepare(),microphone]);
    if(this.cancelled){this.release();return;}
    this.input=this.audio.createMediaStreamSource(this.stream);this.capture=new AudioWorkletNode(this.audio,'tingjian-pcm');
    this.capture.port.onmessage=e=>this.receive(e.data);this.input.connect(this.capture);
    const mute=this.audio.createGain();mute.gain.value=0;this.capture.connect(mute);mute.connect(this.audio.destination);await this.audio.resume();
    if(this.finishing){this.stop();return;}this.onstart?.();
-  }catch(e){if(!this.cancelled)this.onerror?.({error:e.name==='NotAllowedError'?'not-allowed':'network',message:e.message});this.release();}
+  }catch(e){if(!this.cancelled)this.onerror?.({error:e.name==='NotAllowedError'?'not-allowed':['NotFoundError','OverconstrainedError'].includes(e.name)?'audio-capture':e.name==='NotReadableError'?'device-busy':'network',message:e.message});this.release();}
  }
  receive(chunk){
   if(this.cancelled||this.finishing)return;
@@ -70,5 +83,5 @@ export class ServerRecognition{
   if(this.failure)this.onerror?.({error:'network',message:this.failure.message,recordings:this.saved});else this.onend?.();
  }
  abort(){this.cancelled=true;this.abortController?.abort();this.release();}
- release(){this.stream?.getTracks().forEach(t=>t.stop());this.input?.disconnect();this.capture?.disconnect();this.audio?.close().catch(()=>{});}
+ release(){this.captureRequested=false;this.stream?.getTracks().forEach(t=>t.stop());this.input?.disconnect();this.capture?.disconnect();this.audio?.close().catch(()=>{});}
 }
