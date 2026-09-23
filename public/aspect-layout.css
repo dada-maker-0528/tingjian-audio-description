@@ -1,0 +1,317 @@
+/* Application layouts for presentation displays. The opening has its own layout.
+   Reflow actual controls and media; never scale the application as a bitmap. */
+.container, .assistant-original-content, .prompt-editor, .role-card-body,
+.film-info, .watch-heading > div, .page-heading > div { min-width: 0; }
+.task-name, .film-info h3, .watch-heading h1, .execution-record td,
+.execution-record th { overflow-wrap: anywhere; }
+.upload-actions, .action-bar .actions, .control-row { flex-wrap: wrap; }
+dialog { overscroll-behavior: contain; scroll-padding-block: 20px; }
+dialog :is(input, select, textarea) { max-width: 100%; }
+
+/* 16:9 desktop: keep a readable column and cap video by available height. */
+@media (min-width: 1280px) and (min-aspect-ratio: 8/5) {
+  .site-header { max-width: 1512px; }
+  .container { max-width: 1440px; padding-block: 34px 48px; }
+  .site-footer { max-width: 1440px; }
+  .container:has(> .assistant-integration) { max-width: 1512px; }
+  .watch-layout { max-width: 1100px; }
+  .video-wrap { width: 100%; }
+  .watch-layout .video-wrap { max-height: max(220px, min(520px, calc(100dvh - 500px))); }
+  .sample-layout .video-wrap { max-height: max(200px, min(470px, calc(100dvh - 540px))); }
+  .assistant-integration { grid-template-columns: minmax(0, 1fr) minmax(380px, 440px); }
+  .assistant-integration .assistant-shell { min-height: 0; }
+  .assistant-integration .assistant-docked .assistant-shell { min-height: 0; }
+  .container:has(> .stage-nav) { padding-top: 24px; }
+  .container:has(> .stage-nav) > .back-row { margin-bottom: 12px; }
+  .container:has(> .stage-nav) > .stage-nav { margin-bottom: 20px; padding-bottom: 16px; }
+  .container:has(> .stage-nav) > .stage-review-note { margin-block: 12px; padding-block: 9px; }
+  .container:has(> .stage-nav) > .stage-header { margin-bottom: 20px; }
+  .container:has(> .stage-nav) > .stage-header h1 { font-size: 32px; }
+  .container:has(> .stage-nav) > .stage-header p { margin-top: 8px; }
+  .assistant-original-content .sample-layout { grid-template-columns: minmax(0, 1fr) 225px; gap: 18px; }
+  .container:has(> .stage-nav) .sample-layout .video-wrap { max-height: max(200px, min(380px, calc(100dvh - 600px))); }
+  .container:has(> .stage-nav) .action-bar { position: sticky; bottom: 0; z-index: 4; background: #fff; padding-block: 12px; margin-top: 14px; }
+  .container:has(> .stage-nav) .role-portrait { height: 170px; }
+  .assistant-integration [data-assistant-preview] video {
+    max-height: max(180px, calc(100dvh - 460px)); object-fit: contain; background: #111;
+  }
+}
+
+/* A short, panoramic display is a different workspace, not a wider desktop.
+   The 3:1 boundary includes the requested 22:4 (5.5:1) displays at all heights. */
+@media (min-width: 1100px) and (min-aspect-ratio: 3/1) {
+  body:not(.silver-home-mode) {
+    --aspect-gutter: clamp(24px, 2vw, 64px);
+    --aspect-sidebar: clamp(230px, 14vw, 380px);
+    --aspect-video-height: clamp(120px, calc(100dvh - 282px), 380px);
+  }
+  .site-header {
+    max-width: none; height: 58px; padding-inline: var(--aspect-gutter);
+    gap: 34px;
+  }
+  .site-header .brand-mark { width: 34px; height: 34px; }
+  .site-header .brand { font-size: 21px; }
+  .main-nav { margin-left: 0; }
+  .main-nav button.active:after { bottom: 6px; }
+  .header-actions { gap: 18px; }
+  .demo-notice { min-height: 30px; padding: 5px var(--aspect-gutter); }
+  .container, .container:has(> .assistant-integration), .watch-layout {
+    width: 100%; max-width: none; padding: 12px var(--aspect-gutter) 24px;
+  }
+  .container h1 { font-size: clamp(24px, 1.6vw, 32px); line-height: 1.3; }
+  .container h2 { font-size: 21px; }
+  .container .eyebrow { margin-bottom: 6px; font-size: 10px; }
+  .container .btn { min-height: 44px; padding: 9px 16px; font-size: 14px; }
+  .container .back-row { gap: 14px; margin: 0; }
+  .container .back-row .text-btn { min-height: 36px; }
+  .container .task-name { font-size: 12px; text-align: right; }
+  .container .stage-header { margin: 0; align-self: start; }
+  .container .stage-header p { font-size: 14px; margin-top: 9px; }
+  .container .stage-nav { margin: 0; padding-bottom: 8px; align-items: center; }
+  .container .stage-button { font-size: 13px; min-height: 36px; padding: 0 4px; }
+  .container .stage-line { margin-block: 0; }
+  .container .stage-header + .guide-banner { margin: 0; }
+  .container .action-bar {
+    position: sticky; bottom: 0; z-index: 4; background: #fff;
+    flex-wrap: wrap; gap: 10px; margin-top: 10px; padding: 9px 0;
+    box-shadow: 0 -8px 12px #ffffffeb;
+  }
+  .container .action-bar .actions { gap: 8px; }
+  .container .action-bar .hint { font-size: 11px; }
+  .site-footer {
+    max-width: none; margin-inline: var(--aspect-gutter); padding: 8px 0;
+  }
+  .site-footer > div { gap: 16px; }
+  .focus-readout { max-width: none; margin-inline: var(--aspect-gutter); margin-bottom: 10px; }
+
+  /* Library: descriptive cards spread across the display rather than becoming tall posters. */
+  .container:has(> #cards) {
+    display: grid; grid-template-columns: var(--aspect-sidebar) minmax(0, 1fr); gap: 12px 30px;
+  }
+  .container:has(> #cards) > .page-heading { grid-column: 1; grid-row: 1 / span 4; display: block; margin: 0; }
+  .container:has(> #cards) > .page-heading > .btn { margin-top: 18px; }
+  .container:has(> #cards) > .page-heading p { margin-top: 5px; font-size: 14px; }
+  .container:has(> #cards) > :is(.guide-banner, .search-box) { grid-column: 2; margin: 0; align-self: center; }
+  .container:has(> #cards) > .search-box { max-width: none; width: min(100%, 600px); }
+  .container:has(> #cards) > :is(.section-heading, .library-grid, .draft-strip, .workflow-note, #local-projects) {
+    grid-column: 2; margin-block: 0;
+  }
+  .container:has(> #cards) > .section-heading { margin-bottom: 0; }
+  .container:has(> .search-box) > .search-box { grid-row: 1; width: min(40%, 600px); z-index: 1; }
+  .container:has(> .search-box) > .section-heading { grid-row: 1; min-height: 48px; padding-left: min(43%, 630px); }
+  .library-grid { grid-template-columns: repeat(auto-fill, minmax(min(100%, 430px), 1fr)); gap: 16px; }
+  .film-card, .film-card.featured {
+    display: grid; grid-column: auto; grid-template-columns: minmax(100px, 31%) minmax(0, 1fr);
+  }
+  .film-cover, .featured .film-cover { aspect-ratio: auto; min-height: 190px; height: 100%; }
+  .film-cover img { position: absolute; inset: 0; }
+  .film-cover .corner-tag { left: 8px; top: 9px; max-width: calc(100% - 16px); font-size: 10px; padding: 5px; }
+  .film-cover .duration { right: 8px; bottom: 9px; }
+  .film-info { padding: 14px 17px; }
+  .film-info h3 { font-size: 19px; }
+  .film-info p { font-size: 13px; line-height: 1.65; margin: 7px 0 10px; }
+  .film-info .film-meta { margin-bottom: 7px; font-size: 11px; }
+  .film-info .status-label { margin-bottom: 10px; font-size: 11px; }
+  .create-tile { min-height: 190px; padding: 17px; }
+  .create-tile .plus-circle { width: 36px; height: 36px; margin-bottom: 10px; }
+  .create-tile .tile-link { margin-top: 10px; }
+  .workflow-note { padding-top: 14px; gap: 30px; }
+  .mini-steps { justify-content: flex-start; gap: 40px; }
+  #local-projects { margin-block: 20px; }
+  #local-projects h2 { margin-bottom: 12px; }
+
+  /* Stage navigation remains above the work area; instructions get their own rail. */
+  .container:has(> .stage-nav) {
+    display: grid; grid-template-columns: var(--aspect-sidebar) minmax(0, 1fr);
+    column-gap: 28px; row-gap: 12px; align-items: start; padding-top: 12px;
+  }
+  .container:has(> .stage-nav) > * { grid-column: 2; min-width: 0; }
+  .container:has(> .stage-nav) > .back-row { grid-column: 1; grid-row: 1; flex-wrap: wrap; gap: 0 10px; margin: 0; }
+  .container:has(> .stage-nav) > .stage-nav { grid-column: 2; grid-row: 1; margin: 0; padding-bottom: 8px; }
+  .container:has(> .stage-nav) > .stage-header { grid-column: 1; grid-row: 2 / span 4; margin: 0; }
+  .container:has(> .stage-nav) > .stage-header h1 { font-size: clamp(24px, 1.6vw, 32px); }
+  .container:has(> .stage-nav) .action-bar { margin-top: 10px; padding-block: 9px; }
+  .container:has(> .stage-nav) > .stage-review-note { margin: 0; padding: 8px 0; }
+  .container:has(> .stage-nav) > .stage-review-note + .stage-header { grid-row: 2; }
+  .container:has(> .stage-review-note) > .stage-review-note { grid-column: 1; grid-row: 3; display: block; font-size: 12px; padding-block: 12px; }
+  .container:has(> .stage-review-note) > .stage-review-note .btn { margin-top: 9px; }
+  .container:has(> .stage-review-note) > .stage-header { grid-row: 2; }
+  .container:has(> .stage-review-note) > :is(.assistant-integration, .role-grid, .complete-card, .source-review) { grid-row: 2 / span 2; }
+  .container:has(> .stage-nav) > :is(.inline-note, .action-bar) { margin-top: 0; }
+  .upload-layout { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 22px; }
+  .upload-box { min-height: 205px; padding: 20px; }
+  .upload-box > svg { width: 28px; height: 28px; margin-bottom: 9px; }
+  .upload-box p { margin-bottom: 14px; }
+  .demo-source { padding: 14px 18px; display: grid; grid-template-columns: 1fr 1fr; gap: 8px 16px; align-content: start; }
+  .demo-source > .label, .demo-source > .field-label, .demo-source > .text-input { grid-column: 1 / -1; }
+  .demo-source > .field-label { margin: 0; font-size: 12px; }
+  .demo-source > .text-input { min-height: 38px; padding: 6px 10px; font-size: 13px; }
+  .demo-source .source-top { margin: 0; gap: 10px; grid-row: span 2; }
+  .source-top img { width: 76px; height: 62px; }
+  .source-top h3 { font-size: 17px; }
+  .source-top p { font-size: 12px; }
+  .demo-source > p { margin: 0; font-size: 12px; line-height: 1.65; }
+  .demo-source > .btn { align-self: end; }
+  .inline-note { margin-top: 10px; font-size: 12px; }
+  .role-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px; }
+  .role-card { display: grid; grid-template-columns: minmax(78px, 25%) minmax(0, 1fr); }
+  .role-card:not(:has(.role-portrait)) { display: block; }
+  .role-portrait { height: 100%; min-height: 170px; }
+  .role-card-body { padding: 14px 16px; }
+  .role-card .role-index { font-size: 11px; margin-bottom: 5px; }
+  .role-card h3 { font-size: 18px; }
+  .role-card p { min-height: 0; margin-top: 7px; font-size: 13px; line-height: 1.7; }
+  .role-card .text-btn { margin-top: 5px; min-height: 36px; }
+
+  /* All media fit the short viewport while preserving their native aspect ratio. */
+  .video-wrap, .watch-layout .video-wrap, .sample-layout .video-wrap {
+    height: var(--aspect-video-height); max-height: none; aspect-ratio: auto;
+  }
+  .container:has(> .stage-nav) .sample-layout .video-wrap { max-height: none; }
+  .container:has(> .stage-nav) .role-portrait { height: 100%; }
+  .video-wrap video { object-fit: contain; }
+  .video-wrap:fullscreen { height: 100%; }
+  .player-controls { padding: 10px 14px; }
+  .seek { margin-bottom: 8px; }
+  .control-row { gap: 9px; }
+  .control-row .icon-btn { min-height: 34px; }
+  .video-label { top: 8px; left: 9px; padding: 4px 7px; }
+  .play-overlay button { width: 48px; height: 48px; }
+  .subtitle { font-size: 13px; }
+  .sample-layout, .assistant-original-content .sample-layout {
+    grid-template-columns: minmax(0, 1fr) 205px; gap: 16px;
+  }
+  .sample-context { margin-top: 8px; font-size: 11px; }
+  .setting-card { padding: 14px; }
+  .setting-card h3 { font-size: 14px; }
+  .setting-card .version { font-size: 11px; margin-top: 4px; }
+  .settings-summary { gap: 9px; margin: 12px 0; }
+  .setting-item { font-size: 12px; }
+  .setting-card .footnote { font-size: 11px; line-height: 1.55; padding-top: 9px; }
+  .setting-card .btn { margin-top: 8px; padding: 7px 9px; }
+  .transcript { margin-top: 5px; font-size: 12px; }
+  .transcript summary { min-height: 34px; padding: 6px 0; }
+  .live-project video, .source-review, .local-preview video {
+    height: var(--aspect-video-height); max-height: none; object-fit: contain;
+  }
+  .live-project .player-card > h2 { font-size: 18px; }
+  .live-project .player-card > p { font-size: 12px; }
+  .live-controls { gap: 8px; padding: 10px 0; }
+  .live-project .guide-banner { padding: 8px 12px; font-size: 13px; }
+  .live-project .source-review { margin-block: 0; }
+  .complete-card { max-width: 1050px; width: 100%; margin: 0 auto; padding: 20px; grid-template-columns: minmax(150px, .7fr) minmax(0, 1fr); gap: 24px; }
+  .complete-card img { max-height: max(140px, calc(100dvh - 230px)); object-fit: cover; }
+  .complete-card p { margin-bottom: 12px; }
+  .complete-card .success-line { margin-bottom: 10px; }
+  .complete-card .btn + .btn { margin-top: 8px; }
+
+  /* Playback: title rail, real video controls, then a separately scrollable assistant. */
+  .watch-layout { display: grid; grid-template-columns: var(--aspect-sidebar) minmax(0, 1fr); gap: 12px 28px; }
+  .watch-layout > * { grid-column: 2; min-width: 0; }
+  .watch-layout > .back-row { grid-column: 1; grid-row: 1; flex-wrap: wrap; gap: 0; }
+  .watch-layout > .watch-heading { grid-column: 1; grid-row: 2 / span 4; display: block; margin: 0; }
+  .watch-heading p { margin-top: 9px; font-size: 13px; }
+  .watch-heading > .btn { margin-top: 16px; }
+  .watch-layout > .assistant-integration { grid-column: 2; grid-row: 1 / span 6; }
+  .watch-layout > .player-shell { grid-row: 1 / span 2; }
+  .watch-layout { --aspect-video-height: clamp(140px, calc(100dvh - 245px), 420px); }
+  .assistant-integration {
+    grid-template-columns: minmax(0, 1fr) minmax(520px, 1.1fr); gap: 24px;
+    align-items: start;
+  }
+  .assistant-integration > .assistant-mount { padding: 0 0 0 22px; }
+  .assistant-integration .assistant-docked .assistant-shell {
+    display: grid; grid-template-columns: minmax(0, 1fr) minmax(230px, .8fr);
+    grid-template-rows: auto minmax(0, 1fr); gap: 0 20px;
+    height: max(240px, calc(100dvh - 164px)); min-height: 0; overflow: hidden;
+  }
+  .watch-layout .assistant-integration .assistant-docked .assistant-shell { height: max(260px, calc(100dvh - 114px)); }
+  .assistant-integration .assistant-docked .assistant-header {
+    grid-column: 1 / -1; gap: 4px; padding-bottom: 8px;
+  }
+  .assistant-integration .assistant-context-row { grid-template-columns: minmax(0, 1fr) auto; gap: 14px; }
+  .assistant-integration .assistant-context-row .assistant-tabs { gap: 16px; }
+  .assistant-integration .assistant-docked .assistant-context-row select { height: 38px; min-height: 38px; padding-block: 6px; }
+  .assistant-integration .assistant-docked .assistant-headline h2 { font-size: 17px; }
+  .assistant-integration .assistant-docked .assistant-scroll {
+    height: auto; min-height: 0; max-height: none; overflow: auto;
+    padding: 12px 4px 12px 0; scrollbar-gutter: stable;
+  }
+  .assistant-integration .assistant-docked .assistant-footer {
+    min-width: 0; min-height: 0; padding: 12px 0 4px 14px;
+    margin: 0; border-top: 0; border-left: 1px solid #e8e8e8;
+    overflow: auto; align-content: start; gap: 8px;
+  }
+  .assistant-integration .assistant-docked .assistant-composer textarea { min-height: 64px; height: 72px; max-height: 150px; font-size: 14px; padding: 9px; }
+  .assistant-integration .assistant-compose-toolbar { flex-wrap: wrap; gap: 4px; padding: 4px; }
+  .assistant-integration .assistant-compose-toolbar .btn { min-height: 38px; padding: 6px 9px; font-size: 13px; }
+  .assistant-integration .assistant-compose-toolbar kbd { display: none; }
+  .assistant-integration .assistant-scope { flex-wrap: wrap; gap: 5px; }
+  .assistant-integration .assistant-scope select { min-height: 38px; padding: 6px; font-size: 13px; }
+  .assistant-integration .assistant-docked .assistant-welcome { padding: 0 0 8px; }
+  .assistant-integration .assistant-docked .assistant-welcome p,
+  .assistant-integration .assistant-scroll p { font-size: 14px; }
+  .assistant-integration .assistant-docked .assistant-examples { margin: 7px 0 12px; gap: 6px; }
+  .assistant-integration .assistant-docked .assistant-examples .btn { min-height: 36px; padding: 6px 9px; font-size: 12px; }
+  .assistant-integration .assistant-docked .assistant-changes li { grid-template-columns: 85px minmax(0, 1fr); gap: 12px; padding: 10px 0; }
+  .assistant-integration .assistant-docked .assistant-changes :is(strong, span) { font-size: 13px; }
+  .assistant-integration .assistant-docked .assistant-category { min-height: 90px; padding-block: 12px; }
+  .assistant-integration [data-assistant-preview] video { max-height: 150px; width: 100%; object-fit: contain; }
+  .assistant-integration .assistant-prompt { min-height: 120px; }
+
+  .processing { max-width: none; width: 100%; margin: 0; padding: 8px 0; display: grid; grid-template-columns: 260px minmax(0, 1fr); gap: 10px 28px; align-items: start; text-align: left; }
+  .container:has(> .stage-nav) > .processing { grid-column: 1 / -1; grid-template-columns: var(--aspect-sidebar) minmax(0, 1fr); }
+  .processing > * { grid-column: 1; }
+  .processing > .process-icon { width: 42px; height: 42px; margin: 0; }
+  .processing > p { margin: 0; font-size: 13px; }
+  .processing > :is(.task-progress, #task-progress) { grid-column: 2; grid-row: 1 / span 7; margin: 0; min-width: 0; }
+  .processing > #task-progress > .task-progress { margin-top: 0; }
+  .task-steps { gap: 10px; margin-block: 12px; min-height: 0; }
+  .task-inline-stream { height: clamp(110px, calc(100dvh - 310px), 270px); }
+  .live-project .task-progress { max-width: none; margin: 0; }
+  .task-continue { margin: 6px 0 0; }
+
+  /* Dialogs keep their own scroll; their close/save actions stay reachable. */
+  dialog:not(.chat-drawer) { width: min(880px, calc(100vw - 64px)); max-height: calc(100dvh - 24px); padding: 18px 24px; }
+  dialog .dialog-heading { position: sticky; top: -18px; z-index: 5; background: #fff; margin-bottom: 12px; padding-block: 6px 10px; }
+  dialog .dialog-actions { position: sticky; bottom: -18px; z-index: 4; background: #fff; padding-block: 10px; margin-top: 12px; border-top: 1px solid #eee; }
+  dialog .preference-row { padding-block: 12px; }
+  dialog .dialog-copy { margin-bottom: 14px; }
+  dialog:has(.voice-picker) { width: min(1320px, calc(100vw - 64px)); }
+  dialog:has(.voice-picker)[open] { display: grid; grid-template-columns: minmax(260px, .85fr) minmax(0, 1fr) minmax(0, 1fr); gap: 0 24px; }
+  dialog:has(.voice-picker) > .dialog-heading, dialog:has(.voice-picker) > .dialog-copy,
+  dialog:has(.voice-picker) > .dialog-actions { grid-column: 1 / -1; }
+  dialog:has(.voice-picker) > .voice-picker { grid-column: 1; grid-row: span 3; margin: 8px 0; }
+  dialog:has(.voice-picker) .voice-buttons { flex-wrap: wrap; }
+  dialog:has(.voice-picker) .preference-row { gap: 16px; align-items: start; }
+  .prompt-library-modal { width: min(1600px, calc(100vw - 64px)) !important; max-width: none; }
+  .prompt-layout { grid-template-columns: 175px minmax(0, 1fr); gap: 24px; }
+  .prompt-tabs { position: sticky; top: 52px; align-self: start; }
+  .prompt-tabs button { min-height: 40px; padding: 9px 12px; }
+  .prompt-scope { margin: 6px 0 12px; }
+  .prompt-editor textarea { height: clamp(110px, calc(100dvh - 255px), 260px); min-height: 110px; padding: 10px 12px; }
+  .prompt-assist { margin-block: 12px; padding-top: 12px; }
+  .prompt-actions { position: sticky; bottom: -18px; z-index: 4; background: #fff; padding-block: 9px; margin-top: 12px; border-top: 1px solid #eee; }
+  .chat-drawer:has(.revision-form) { width: min(1260px, calc(100vw - 64px)); padding: 18px 24px; }
+  .chat-drawer:has(.revision-form) .chat-inner { min-height: 0; gap: 10px; }
+  .revision-form { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 12px 24px; }
+  .revision-form > * { min-width: 0; }
+  .revision-form > :is(label, textarea, .revision-conversation, .revision-quick, .revision-hint) { grid-column: 1; }
+  .revision-form > .revision-categories { grid-column: 2; grid-row: 1 / span 5; }
+  .revision-form > :is(.revision-summary, .revision-technical, .revision-scope, .revision-status, .revision-submit) { grid-column: 1 / -1; }
+  .revision-submit { position: sticky; bottom: -18px; z-index: 3; background: #fff; border-top: 1px solid #eee; }
+}
+
+/* At the 2200 x 400 target, put sample settings below the side-by-side review.
+   The player and its primary confirmation remain the first controls in the column. */
+@media (min-width: 1100px) and (min-aspect-ratio: 3/1) and (max-height: 480px) {
+  .assistant-original-content:has(.sample-layout) { display: flex; flex-direction: column; }
+  .assistant-original-content .sample-layout { display: contents; }
+  .assistant-original-content .sample-layout > .setting-card { order: 3; width: 100%; margin-top: 12px; }
+  .assistant-original-content:has(.sample-layout) > .action-bar { order: 2; }
+  .assistant-original-content .sample-layout > div:first-child { min-width: 0; }
+  .assistant-integration .assistant-docked .assistant-header { padding-bottom: 4px; }
+  .assistant-integration .assistant-docked .assistant-tabs button { min-height: 36px; padding-block: 6px; }
+  .assistant-integration .assistant-docked .assistant-headline { min-height: 32px; }
+  .container .stage-header h1 { font-size: 24px; }
+}

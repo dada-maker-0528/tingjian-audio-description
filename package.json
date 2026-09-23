@@ -6,6 +6,7 @@
   "scripts": {
     "build": "node scripts/build-server.mjs",
     "build:worker": "node scripts/build.mjs",
+    "check:contest": "node --env-file-if-exists=.env scripts/check-config.mjs",
     "dev": "node --env-file-if-exists=.env server/local.mjs",
     "test": "node --test tests/*.test.mjs",
     "dev:worker": "wrangler dev --ip 127.0.0.1 --port 5294",

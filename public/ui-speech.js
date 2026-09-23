@@ -3,7 +3,7 @@ import {VOICES,VOICE_PREVIEW_TEXT} from './voices.js';
 
 export const HOME_SPACE_HINT='按空格键，首页新建项目，上传页选择文件，播放时暂停或继续。';
 export const KEYBOARD_NAV_HINT='Tab 向后，Shift 加 Tab 向前，选中后按回车打开。';
-export const NAV_FOCUS_PROMPTS=Object.freeze({home:'开屏，导航按钮，按回车进入。',about:'项目介绍，导航按钮，按回车进入。',library:'我的视频，导航按钮，按回车进入。','prompt-library':'提示词库，导航按钮，按回车打开。'});
+export const NAV_FOCUS_PROMPTS=Object.freeze({home:'首页，导航按钮，按回车进入。',library:'我的视频，导航按钮，按回车进入。','prompt-library':'提示词库，导航按钮，按回车打开。'});
 export const STOP_FOCUS_PROMPT='停止提示按钮，按回车停止当前语音；按 Tab 继续浏览。';
 
 // Shared spelling is also the cache identity: whitespace/punctuation alone must not bill again.

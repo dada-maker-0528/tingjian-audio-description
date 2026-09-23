@@ -1,4 +1,7 @@
 {
-  "defaultFilmId": "user-film-a711ab9d-v1",
-  "manifests": ["assets/film.json"]
+  "defaultFilmId": "nezha-s1-20260922",
+  "manifests": [
+    "assets/film.json",
+    "assets/nezha-s1.json"
+  ]
 }

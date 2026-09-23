@@ -2,7 +2,6 @@ import {uploadVideo,projectRequest,filmFromProject} from './upload-service.js';
 import {resolveSource,hasStageMedia,MEDIA_PLANS,stageRange,stageVideo,extensionReady,stageFilm,mediaHistory,isSecondScene,secondSceneReady,assembledMediaReady,stageCues} from './stage-media.js';
 import {createMediaBackend} from './assistant/media-backend.js';
 import {openingPage} from './opening.js';
-import {projectAboutPage,ABOUT_NARRATION} from './project-about.js';
 import {request as backendRequest} from './assistant/backend-service.js';
 import {createAssistantBackend,audioBaseline} from './assistant/backend-service.js';
 import {createPromptLibrary} from './prompt-library.js';
@@ -44,7 +43,7 @@ if(task){task.assetId=task.assetId||defaultFilm.id;task.candidate={...defaults()
 let revision=stored.revision&&stored.revision.stage==='full-review'&&!stored.revision.completed&&validSettings(stored.revision.candidate)&&findFilm(stored.revision.assetId)?stored.revision:null;
 if(revision){revision.candidate=copySettings(revision.candidate);revision.renderedVersion=null;}
 let regenerationBusy=false;
-let route=new URLSearchParams(location.search).get('view')==='about'?'about':'home',watching=null,guideToken=0,runId=0,toastId,returnFocus=null,lastMessage='',currentGuide='home',previewUrl=null,guideDetailPrefix='',lastAutoPage='';
+let route='home',watching=null,guideToken=0,runId=0,toastId,returnFocus=null,lastMessage='',currentGuide='home',previewUrl=null,guideDetailPrefix='',lastAutoPage='';
 const roleTour=new GuideSequence();
 const speech=new SpeechService();let guideAbort=null,guideResolver=null,mediaAbort=null,activeNarrationCues=null,currentAudioSource='local';
 const liveSpeech=()=>speech.available&&prefs.ttsMode!=='local';
@@ -128,7 +127,10 @@ const stageTitle=owner=>{
 const playbackScope=()=>hasStageMedia(film)&&route==='short'?'人物出场试听':hasStageMedia(film)&&route==='medium'?(isSecondScene(task)?'第 2 个场景':'首个场景'):['short','medium'].includes(route)?sceneScopeLabel(film,scenePreviewCount(task)):'完整视频';
 const activeTask=()=>route==='full-review'?revision:task;
 const playerSettings=()=>route==='watch'?watching?.settings:activeTask()?.candidate;
-const guideContext=()=>({film,task:activeTask(),filmCount:films.length,libraryCount:route==='library'?main.querySelectorAll('#cards .film-card').length:library.length,shortcuts:prefs.shortcuts});
+const guideContext=()=>{
+ const libraryTotal=library.filter(item=>isListedVideo(item)&&findFilm(item.assetId)).length;
+ return {film,task:activeTask(),filmCount:films.length,libraryTotal,libraryCount:route==='library'?main.querySelectorAll('#cards .film-card').length:libraryTotal,libraryQuery:route==='library'?($('#search')?.value||''):'',shortcuts:prefs.shortcuts};
+};
 const currentGuideText=(key=currentGuide,{detailed=false}={})=>{
  if(['analyzing','generating','full'].includes(key)&&main.querySelector('.task-continue:not([hidden])'))return main.querySelector('.task-status')?.textContent||'';
  const words=detailed?(pageGuide(key,guideContext())||film?.guides?.[key]||''):briefPageGuide(key,guideContext());
@@ -162,37 +164,32 @@ async function say(key,text,force=false,{sequence=false}={}){
 }
 function clearPlayer(){mediaAbort?.abort();mediaAbort=null;activeNarrationCues=null;mediaGeneration++;regenerationBusy=false;pauseMedia();if(player){player.removeAttribute('src');player.load();player=null;}narration.removeAttribute('src');narration.load();playerReady=false;}
 function page(html,guideKey,focus=true,options={}){
- document.body.classList.toggle('intro-page',route==='home');document.body.classList.toggle('project-page',route==='about');
+ document.body.classList.toggle('intro-page',route==='home');
  processingView?.dispose();processingView=null;main.classList.remove('process-page');assistant.hide();stopAll();clearPlayer();main.innerHTML=html;const heading=main.querySelector('h1');if(heading)heading.tabIndex=-1;fillIcons();
- $('.main-nav [data-action="about"]').classList.toggle('active',route==='about');$('.main-nav [data-action="about"]').setAttribute('aria-current',route==='about'?'page':'false');$('.main-nav [data-action="library"]').classList.toggle('active',route==='library');
+ $('.main-nav [data-action="home"]').classList.toggle('active',route==='home');$('.main-nav [data-action="library"]').classList.toggle('active',route==='library');
  currentGuide=guideKey||route;guideDetailPrefix=options.introPrefix||'';if(focus)focusTitle();updateGuideUI();mountAssistant();
- const pageKey=[currentGuide,film.id,['short','medium'].includes(route)?task?.sceneCount:'',route==='watch'?watching?.id:''].join(':');
+ const pageKey=JSON.stringify([currentGuide,film.id,['short','medium'].includes(route)?task?.sceneCount:'',route==='watch'?watching?.id:'',route==='library'?[guideContext().libraryCount,guideContext().libraryQuery]:null]);
  const words=currentGuideText(),speak=options.guide!==false&&pageKey!==lastAutoPage;lastAutoPage=pageKey;announce(words);
  return speak?say(currentGuide,words):Promise.resolve(false);
 }
 function goHome(isLibrary=false){runId++;stopAll();route=isLibrary?'library':'home';renderHome();}
-function goAbout(){runId++;stopAll();route='about';renderHome();}
-function goDestination(destination){if(destination==='about')goAbout();else goHome(destination==='library');}
 function filmCard(item,i,featured){const source=findFilm(item.assetId);if(!source)return '';const media=stageFilm(source,item);const pos=item.position>1&&item.position<media.duration-2?item.position:0;const cover=media.covers[i%media.covers.length];return `<article class="film-card ${featured?'featured':''}"><div class="film-cover"><img src="${mediaAsset(cover.file)}" alt="${esc(cover.alt)}" loading="${i?'lazy':'eager'}"><span class="corner-tag">${icon('headphones')}${hasNarration(media)?'中文口述影像':'原片'}</span><span class="duration">${time(media.duration)}</span></div><div class="film-info"><div class="film-meta"><span class="index">${i+1}</span>${item.public?'公开视频':'本机口述版本'} · ${esc(media.kind||'影视片段')}</div><h3>${esc(item.title)}</h3><p>${esc(media.shortDescription||media.description||'')}</p><span class="status-label">${icon('check')}${pos?'已听到 '+time(pos):hasNarration(media)?'已添加口述影像':'原声视频'}</span><button class="btn primary" data-action="watch" data-id="${esc(item.id)}" data-focus-label="${pos?'继续播放':'播放'}《${esc(item.title)}》" aria-label="${pos?'继续播放':'播放'}《${esc(item.title)}》，${durationWords(media.duration)}">${icon('play')}${pos?'继续播放':'播放视频'}</button></div></article>`;}
 function renderHome(query=''){
- if(route==='about'){page(projectAboutPage(icon),'about',true,{guide:false});return;}
  if(route==='home'){page(openingPage(icon),'home',true,{guide:false});return;}
  const all=true,source=library.filter(item=>isListedVideo(item)&&findFilm(item.assetId)),items=visibleLibrary(source,{query,all});
  page(`<div class="container library-page"><div class="page-heading"><div class="title-line"><h1>${all?'我的视频':'示例视频'}</h1><span class="count">${items.length} 部</span></div><button class="btn primary" data-action="create">${icon('plus')}创建新视频<kbd>空格</kbd></button></div>${all?`<label class="search-box">${icon('search')}<input type="search" id="search" placeholder="搜索视频" aria-label="搜索我的视频" value="${esc(query)}"></label>`:''}${task&&!task.completed?`<div class="draft-strip">${icon('file')}<span>制作中 · ${stageTitle(task)}</span><button class="text-btn" data-action="resume">继续制作 ${icon('arrow')}</button></div>`:''}${revision&&!revision.completed?`<div class="draft-strip">${icon('file')}<span>${esc(revision.title)}</span><button class="text-btn" data-action="resume-revision">继续修改 ${icon('arrow')}</button></div>`:''}<div class="library-tools"><span>${all?'按名称查找':'最近添加'}</span>${!all&&library.length>6?`<button class="text-btn" data-action="library">查看全部 ${icon('arrow')}</button>`:''}</div><div class="library-grid" id="cards">${items.length?items.map((x,i)=>filmCard(x,i,false)).join(''):'<div class="empty-state"><h3>没有找到视频</h3></div>'}</div></div>`,all?'library':'home',false);
- if(all)$('#search').addEventListener('input',e=>{const matches=visibleLibrary(source,{query:e.target.value,all:true});$('#cards').innerHTML=matches.map((x,i)=>filmCard(x,i,false)).join('')||'<div class="empty-state"><h3>没有找到视频</h3></div>';main.querySelector('.count').textContent=matches.length+' 部';announce('当前列表共 '+matches.length+' 部视频。');});
+ if(all)$('#search').addEventListener('input',e=>{const matches=visibleLibrary(source,{query:e.target.value,all:true});$('#cards').innerHTML=matches.map((x,i)=>filmCard(x,i,false)).join('')||'<div class="empty-state"><h3>没有找到视频</h3></div>';main.querySelector('.count').textContent=matches.length+' 部';announce(currentGuideText());});
 }
 function stageNav(active){const labels=hasStageMedia(film)?['上传视频','认识角色','试听','首个场景','连续场景','完成整片']:['上传视频','认识角色','首个场景','连续场景','完成整片'];return `<nav class="stage-nav" aria-label="制作阶段">${labels.map((name,i)=>`${i?'<span class="stage-line" aria-hidden="true"></span>':''}<button class="stage-button ${active===i?'active':active>i?'completed':''}" data-action="view-stage" data-stage="${i}" data-focus-label="${name}" ${i>active?'disabled':''} ${i===active?'aria-current="step"':''}><span class="num">${i<active?icon('check'):i+1}</span><span>${name}</span></button>`).join('')}</nav>`;}
-const storyScenes=()=>hasStageMedia(film)?MEDIA_PLANS[film.id].extension.scenes:film.scenes;
-const projectDuration=()=>hasStageMedia(film)?MEDIA_PLANS[film.id].extension.initial.duration:film.duration;
-function shell(content,active){return `<div class="container"><div class="back-row"><button class="text-btn" data-action="exit">${icon('back')}返回我的视频</button><span class="task-name">${active===0?'新建口述影像':film.title}<span aria-hidden="true"> · </span>${active===0?'从一段视频开始':time(projectDuration())+' · '+(film.kind||'影视片段')}</span></div>${stageNav(active)}${content}</div>`;}
+function shell(content,active){const duration=hasStageMedia(film)&&['upload','analyzing','roles'].includes(route)?MEDIA_PLANS[film.id].extension.initial.duration:hasStageMedia(film)&&route==='short'?stageRange(film,task,1).duration:film.duration;return `<div class="container"><div class="back-row"><button class="text-btn" data-action="exit">${icon('back')}返回我的视频</button><span class="task-name">${active===0?'新建口述影像':film.title}<span aria-hidden="true"> · </span>${active===0?'从一段视频开始':time(duration)+' · '+(film.kind||'影视片段')}</span></div>${stageNav(active)}${content}</div>`;}
 function renderUpload(){route='upload';page(shell(`<div class="stage-header"><div class="eyebrow">01 / 选择素材</div><h1>从一部电影开始</h1><p>上传本地视频，或粘贴视频链接，开始认识这个故事。</p></div><div class="upload-layout" style="display:block"><form class="upload-box" id="link-form">${icon('link')}<h2>你想听哪部电影？</h2><label class="field-label" for="video-url">视频链接</label><input class="text-input" id="video-url" name="url" type="text" placeholder="粘贴视频链接" autocomplete="off" maxlength="4096" required><div class="dialog-error" id="link-error" role="status"></div><div class="upload-actions"><button type="button" class="btn" data-action="upload">${icon('plus')}上传本地视频</button><button type="submit" class="btn primary">解析并继续 ${icon('arrow')}</button></div></form></div><div id="local-preview"></div>`,0),'upload');$('#link-form').addEventListener('submit',submitSource);const zone=$('#link-form');zone.addEventListener('dragover',e=>e.preventDefault());zone.addEventListener('drop',e=>{e.preventDefault();if(e.dataTransfer.files[0])handleFile(e.dataTransfer.files[0]);});}
 function submitSource(e){e.preventDefault();try{const source=resolveSource($('#video-url').value);selectFilm(defaultFilm.id);startDemo(source);}catch(error){$('#link-error').textContent=error.message;announce(error.message);}}
 
 function beginCreate(){stopAll();selectFilm(defaultFilm.id);if(task&&!task.completed){showModal('继续上次制作？',`<p class="dialog-copy">你还有一份停在「${stageTitle(task)||'认识角色'}」的草稿。</p><div class="dialog-actions"><button class="btn" data-action="new-task">重新开始</button><button class="btn primary" data-action="resume">继续上次制作</button></div>`);return;}task=null;renderUpload();}
-function startDemo(source){if(!source)return renderUpload();closeModal();task=newTask(film);task.sourceInput=source;task.mediaPlan=hasStageMedia(film);task.candidate.voice=task.mediaPlan?DEFAULT_VOICE:liveSpeech()?prefs.voice:DEFAULT_VOICE;persist();processing('analyzing','正在认识这个故事',['读取视频','整理出场人物',`整理 ${storyScenes().length} 个完整场景`,'整理旁白的插入位置'],()=>{renderRoles();},0);}
+function startDemo(source){if(!source)return renderUpload();closeModal();task=newTask(film);task.sourceInput=source;task.mediaPlan=hasStageMedia(film);task.candidate.voice=task.mediaPlan?DEFAULT_VOICE:liveSpeech()?prefs.voice:DEFAULT_VOICE;persist();processing('analyzing','正在认识这个故事',['读取视频','整理出场人物',`整理 ${storySceneTotal()} 个完整场景`,'整理旁白的插入位置'],()=>{renderRoles();},0);}
 function mediaTransitionCopy(kind){
  if(!hasStageMedia(film))return null;
- if(kind==='analyzing')return {scope:`${roles.length} 位主要人物 · ${storyScenes().length} 个场景`,pending:'正在核对人物与场景资料',readyTitle:'人物与场景已整理',readyDetail:'接下来认识主要人物。',status:'人物与场景已整理，按空格认识人物。',next:'认识人物'};
+ if(kind==='analyzing')return {scope:`${roles.length} 位主要人物 · ${storySceneTotal()} 个场景`,pending:'正在核对人物与场景资料',readyTitle:'人物与场景已整理',readyDetail:'接下来认识主要人物。',status:'人物与场景已整理，按空格认识人物。',next:'认识人物'};
  if(kind==='full')return {scope:'两个场景的完整成片',pending:'正在检查完整成片的播放资源',readyTitle:'完整成片已就绪',readyDetail:'两个场景已组成完整视频，接下来查看成片。',status:'完整成片已就绪，按空格查看完整成片。',next:'查看完整成片',progress:'准备完整成片'};
  if(task?.stage==='short')return {scope:'人物出场片段',pending:'正在检查人物出场片段的播放资源',readyTitle:'人物出场片段已就绪',readyDetail:'接下来试听 10 秒的人物出场片段。',status:'人物出场片段已就绪，按空格进入试听。',next:'进入试听',progress:'准备人物出场试听'};
  if(isSecondScene(task))return {scope:`第 2 个场景 · ${film.scenes[0].title}`,pending:'正在检查第 2 个场景的播放资源',readyTitle:'第 2 个场景已就绪',readyDetail:'接下来在连续场景中试听第 2 个场景。',status:'第 2 个场景已就绪，按空格进入连续场景。',next:'进入连续场景',progress:'准备第 2 个场景试听'};
@@ -205,7 +202,7 @@ function processing(kind,title,steps,done,active){
  const labels=analysis?['读取视频信息','加载人物资料','核对镜头与场景','读取旁白时间轴']:['绑定旁白参数','构建审校样片','媒体完整性校验'];
  if(full)labels[1]='准备完整旁白版本';
  if(!analysis&&film.audioMode==='mixed-narration')labels.splice(0,labels.length,...(transition?['核对当前视频范围','检查播放资源',transition.progress]:['核对场景范围','读取成片媒体信息','准备场景试听']));
- const contentDuration=analysis?projectDuration():hasStageMedia(film)&&kind==='generating'&&task?.stage==='short'?stageRange(film,task,1).duration:film.duration;
+ const contentDuration=hasStageMedia(film)?analysis?MEDIA_PLANS[film.id].extension.initial.duration:full?film.duration:stageRange(film,task,scenePreviewCount(task)).duration:film.duration;
  const context=transition?`《${esc(film.title)}》 · ${esc(transition.scope)} · ${time(contentDuration)}<br><span id="processing-detail">${esc(transition.pending)}</span>`:`《${esc(film.title)}》 · 内容时长 ${time(contentDuration)}<br>${analysis?'正在读取影片资料与播放资源':'正在检查场景范围与播放资源'}`;
  page(shell(`<section class="processing"><div class="process-icon">${icon('spark')}</div><h1>${title}</h1><p>${context}</p><div id="task-progress"></div></section>`,analysis?1:active),kind);
  main.classList.add('process-page');
@@ -218,16 +215,17 @@ function processing(kind,title,steps,done,active){
   if(liveSpeech())return speech.narration(start,duration,task.candidate,signal,film);
   if(task.candidate.voice!==DEFAULT_VOICE)throw new Error('当前音色需要在线语音服务');
   const key=task.candidate.speed+'-'+task.candidate.density;
-  if(!film.fallbackAudio?.[key])throw new Error('缺少本地演示音频');
+  if(!film.fallbackAudio?.[key])throw new Error(hasStageMedia(film)?'缺少当前旁白音频':'缺少本地演示音频');
   return {url:assetURL(film.fallbackAudio[key]),cues:film.narration?.[key]||[],provider:'local-preset'};
  }});
  void runTaskPlan(view,plan).then(ok=>{if(!ok||id!==runId||processingView!==view)return;stopGuide();done();});
 }
 
+const storySceneTotal=()=>hasStageMedia(film)?MEDIA_PLANS[film.id].extension.scenes.length:film.scenes.length;
 function rolesHTML(){return `<div class="role-grid">${roles.map((r,i)=>`<article class="role-card" data-role="${i}"><div class="role-portrait" role="img" aria-label="${r.name}的人物画面" style="background-image:url('${mediaAsset(r.image)}');background-size:${r.size};background-position:${r.pos};${hasStageMedia(film)?'':'filter:grayscale(1)'}"></div><div class="role-card-body"><div class="role-index">角色 ${String(i+1).padStart(2,'0')} · ${r.nameSource}</div><h3>${r.name}</h3><p>${r.detail}</p><button class="text-btn" data-action="role" data-index="${i}" data-focus-label="再听${esc(r.name)}介绍">${icon('volume')}再听这个角色 <kbd>${i+1}</kbd></button></div></article>`).join('')}</div>`;}
-function renderRoles(){route='roles';page(shell(`<div class="stage-header"><div class="eyebrow">02 / 认识角色</div><h1>认识人物</h1><p>${roles.length} 位主要人物 · ${storyScenes().length} 个场景</p></div>${rolesHTML()}<div class="action-bar"><span class="hint" id="role-hint">${icon('volume')}${prefs.shortcuts?'数字 1—'+Math.min(roles.length,9)+' 再听人物 · ':''}空格继续</span><div class="actions"><button class="btn" data-action="roles-all">${icon('replay')}再听全部</button><button class="btn primary" data-action="confirm">${hasStageMedia(film)?'进入试听':'继续到首个场景'} <kbd>空格</kbd> ${icon('arrow')}</button></div></div>`,1),'roles',true,{guide:false});enterRoles();}
+function renderRoles(){route='roles';page(shell(`<div class="stage-header"><div class="eyebrow">02 / 认识角色</div><h1>认识人物</h1><p>${roles.length} 位主要人物 · ${storySceneTotal()} 个场景</p></div>${rolesHTML()}<div class="action-bar"><span class="hint" id="role-hint">${icon('volume')}${prefs.shortcuts?'数字 1—'+Math.min(roles.length,9)+' 再听人物 · ':''}空格继续</span><div class="actions"><button class="btn" data-action="roles-all">${icon('replay')}再听全部</button><button class="btn primary" data-action="confirm">${hasStageMedia(film)?'进入试听':'继续到首个场景'} <kbd>空格</kbd> ${icon('arrow')}</button></div></div>`,1),'roles',true,{guide:false});enterRoles();}
 const roleReviewOpen=()=>modal.open&&modal.dataset.kind==='roles';
-function enterRoles(){if(prefs.guide&&!prefs.reader)return playRoles();announce(roleIntroduction(roles,{sceneCount:film.scenes.length})+roleChoices(roles,{shortcuts:prefs.shortcuts,completed:false}));}
+function enterRoles(){if(prefs.guide&&!prefs.reader)return playRoles();announce(roleIntroduction(roles,{sceneCount:storySceneTotal()})+roleChoices(roles,{shortcuts:prefs.shortcuts,completed:false}));}
 function playRole(index){if(roles[index])return playRoles({index});}
 async function playRoles({index,review=roleReviewOpen()}={}){
  stopAll();const currentFilm=film;
@@ -253,8 +251,9 @@ function settingsHTML(settings,version,owner=task){return `<aside class="setting
 function playerHTML(label){return `<div class="player-shell"><div class="video-wrap"><video id="film-player" preload="metadata" playsinline poster="${mediaAsset(film.covers[0].file)}" aria-label="${esc(film.title)}，${esc(film.kind||'影片')}"></video><span class="video-label">${icon('headphones')}<span id="video-label-text">${label}</span></span><div class="play-overlay" id="play-overlay"><button data-action="play" aria-label="播放视频">${icon('play')}</button></div><div class="subtitle" id="subtitle" aria-hidden="true"></div></div><div class="scene-playback" id="scene-playback" aria-live="off"></div><div class="player-controls"><input type="range" id="seek" class="seek" min="0" max="${film.duration}" value="0" step="0.1" aria-label="视频播放进度"><div class="control-row"><button class="icon-btn" data-action="play" id="play-button" aria-label="播放">${icon('play')}</button><button class="icon-btn" data-action="back10" aria-label="后退 10 秒">${icon('back10')}</button><button class="icon-btn" data-action="forward10" aria-label="前进 10 秒">${icon('forward10')}</button><span class="time" id="player-time">00:00 / ${time(film.duration)}</span><span class="spacer"></span><button class="narration-toggle" data-action="narration" aria-pressed="true">${icon('headphones')}<span>旁白开启</span></button><button class="icon-btn" data-action="fullscreen" aria-label="全屏播放">${icon('fullscreen')}</button></div></div><div class="media-error" id="media-error" hidden></div></div>`;}
 function sceneOverview(count){
  const range=stageRange(film,task,count),confirmed=task.confirmed?.version===task.version?task.confirmedSceneCount||0:0;
- const scenes=storyScenes(),currentNumber=isSecondScene(task)?2:1,opening=hasStageMedia(film)&&task.stage==='short';
- return `<section class="scene-scope" aria-label="本次场景范围"><div class="scene-scope-heading"><h2>${opening?'人物出场 · '+esc(range.scenes[0].title):count===1?`第 ${range.scenes[0].storyNumber||1} 个场景 · `+esc(range.scenes[0].title):sceneScopeLabel(film,count)}</h2><span>${time(range.duration)}</span></div>${count>1?`<p class="scene-route">${range.scenes.map((s,i)=>`${i+1}. ${esc(s.title)}`).join(' / ')}</p>`:''}<details><summary>${isSecondScene(task)?'当前试听场景':'场景列表'} · 已确认 ${confirmed}/${scenes.length}</summary><ol class="scene-order">${scenes.map((s,i)=>{const number=s.storyNumber||i+1,inScope=hasStageMedia(film)?number===currentNumber:i<count;return `<li class="${inScope?'included':''}"><strong>${number}. ${esc(s.title)}</strong><span>${time(s.end-s.start)} · ${number<=confirmed?'已确认':inScope?opening?'片段试听':'本次试听':'待制作'}</span></li>`;}).join('')}</ol></details></section>`;
+ const mediaPlan=hasStageMedia(film),scenes=mediaPlan?MEDIA_PLANS[film.id].extension.scenes:film.scenes;
+ const activeStory=isSecondScene(task)?2:1,opening=mediaPlan&&task.stage==='short';
+ return `<section class="scene-scope" aria-label="本次场景范围"><div class="scene-scope-heading"><h2>${opening?'人物出场 · '+esc(range.scenes[0].title):count===1?`第 ${range.scenes[0].storyNumber||1} 个场景 · `+esc(range.scenes[0].title):sceneScopeLabel(film,count)}</h2><span>${time(range.duration)}</span></div>${count>1?`<p class="scene-route">${range.scenes.map((s,i)=>`${i+1}. ${esc(s.title)}`).join(' / ')}</p>`:''}<details><summary>${isSecondScene(task)?'当前试听场景':'场景列表'} · 已确认 ${confirmed}/${mediaPlan?scenes.length:film.storySceneCount||film.scenes.length}</summary><ol class="scene-order">${scenes.map((s,i)=>{const number=s.storyNumber||i+1,included=mediaPlan?number===activeStory:i<count;return `<li class="${included?'included':''}"><strong>${number}. ${esc(s.title)}</strong><span>${time(s.end-s.start)} · ${number<=confirmed?'已确认':included?opening?'片段试听':'本次试听':'待制作'}</span></li>`;}).join('')}</ol></details></section>`;
 }
 function renderSample({introPrefix='',regenerating=false}={}){
  const stage=task.stage;route=stage;const first=stage==='short',count=scenePreviewCount(task),range=stageRange(film,task,count);if(!isSecondScene(task))task.sceneCount=count;
@@ -383,14 +382,14 @@ async function initPlayer(start,duration,settings,position=0,candidate=null){
  if(liveSpeech()&&!candidate&&!film.projectId&&!current?.originalNarrationUrl){
   if(label)label.textContent='正在合成中文旁白…';announce('正在通过豆包语音合成本段旁白。');
   try{const result=await speech.narration(start,duration,settings,signal,film);if(generation!==mediaGeneration)return false;src=result.url;activeNarrationCues=result.cues;currentAudioSource='volcengine';}
-  catch(e){if(signal.aborted||generation!==mediaGeneration)return false;if((settings.voice||DEFAULT_VOICE)!==DEFAULT_VOICE){mediaError(new Error(e.message+' 可以重试或切换默认音色。'));return false;}toast(e.message+' 已使用本地演示音频。');}
+  catch(e){if(signal.aborted||generation!==mediaGeneration)return false;if((settings.voice||DEFAULT_VOICE)!==DEFAULT_VOICE){mediaError(new Error(e.message+' 可以重试或切换默认音色。'));return false;}toast(e.message+(hasStageMedia(film)?' 已使用现有旁白音频。':' 已使用本地演示音频。'));}
  }
  if(current?.originalNarrationUrl){src=current.originalNarrationUrl;activeNarrationCues=current.film.scenes.flatMap(s=>s.cues);currentAudioSource='revision';}
  if(candidate?.narrationUrl){src=candidate.narrationUrl;activeNarrationCues=candidate.cues;audioOffset=candidate.start;currentAudioSource='revision';narration.volume=Math.min(1,candidate.masterGain||settings.gain);}
  if(generation!==mediaGeneration)return false;
  narration.src=src;if(label)label.textContent=`${playbackScope()} · ${currentAudioSource==='revision'?'新版旁白':currentAudioSource==='volcengine'?'豆包 · '+voiceInfo(settings.voice).name:'本地默认旁白'}`;
  const relevant=activeNarrationCues.filter(c=>c.start>=start&&c.start<clipEnd);$('#transcript-text')&&($('#transcript-text').innerHTML=relevant.map(c=>`<p><span class="film-meta">${time(c.start)}</span>${esc(c.text)}</p>`).join(''));
- try{await Promise.all([mediaReady(v),mediaReady(narration)]);if(generation!==mediaGeneration)return false;v.currentTime=Math.max(start,Math.min(clipEnd,position||start));narration.currentTime=Math.max(0,v.currentTime-audioOffset);playerReady=true;updatePlayButtons();main.querySelectorAll('[data-scene-confirm]').forEach(b=>{b.disabled=false;b.removeAttribute('title');});updateProgress();announce((playbackScope()+'旁白')+'已准备好，'+(currentAudioSource==='revision'?'使用实际生成的新版配音。':film.projectId?'使用已生成的配音。':currentAudioSource==='volcengine'?'由豆包语音合成。':'使用本地演示音频。'));return true;}catch(e){if(generation===mediaGeneration)mediaError(e);return false;}
+ try{await Promise.all([mediaReady(v),mediaReady(narration)]);if(generation!==mediaGeneration)return false;v.currentTime=Math.max(start,Math.min(clipEnd,position||start));narration.currentTime=Math.max(0,v.currentTime-audioOffset);playerReady=true;updatePlayButtons();main.querySelectorAll('[data-scene-confirm]').forEach(b=>{b.disabled=false;b.removeAttribute('title');});updateProgress();announce((playbackScope()+'旁白')+'已准备好，'+(currentAudioSource==='revision'?'使用实际生成的新版配音。':film.projectId?'使用已生成的配音。':currentAudioSource==='volcengine'?'由豆包语音合成。':hasStageMedia(film)?'使用现有旁白音频。':'使用本地演示音频。'));return true;}catch(e){if(generation===mediaGeneration)mediaError(e);return false;}
 }
 function mediaError(e){pauseMedia();const box=$('#media-error');if(box){box.hidden=false;box.innerHTML=`${esc(e?.message||'播放未开始，请重试。')} <button class="text-btn" data-action="retry-media">重新加载</button>`;}announce('播放未开始，请重试。');}
 function updatePlayButtons(){main.querySelectorAll('[data-action="play"]').forEach(b=>{b.disabled=!playerReady;b.setAttribute('aria-label',playerReady?(playing?'暂停':'播放'):'正在准备视频与旁白');});const btn=$('#play-button');if(btn){btn.innerHTML=icon(playing?'pause':'play');btn.setAttribute('aria-label',playerReady?(playing?'暂停':'播放'):'正在准备视频与旁白');}const overlay=$('#play-overlay');if(overlay)overlay.style.display=playing?'none':'grid';}
@@ -406,13 +405,13 @@ function syncFrame(){if(!playing||!player)return;if(player.currentTime>=clipEnd-
 function updateProgress(){if(!player)return;const at=player.currentTime;const elapsed=Math.max(0,Math.min(clipEnd-clipStart,at-clipStart));if($('#seek')){$('#seek').value=elapsed;$('#seek').setAttribute('aria-valuetext',durationWords(elapsed)+'，共'+durationWords(clipEnd-clipStart));}$('#player-time')&&($('#player-time').textContent=`${time(elapsed)} / ${time(clipEnd-clipStart)}`);
  const sceneIndex=film.scenes?.findIndex(s=>Math.min(at,clipEnd-.001)>=s.start&&Math.min(at,clipEnd-.001)<s.end)??-1;
  if(sceneIndex>=0)assistant.syncPlayhead(film.scenes[sceneIndex].id,at);
- const sceneLabel=$('#scene-playback');if(sceneLabel){sceneLabel.hidden=sceneIndex<0;const text=sceneIndex<0?'':hasStageMedia(film)&&route==='short'?`人物出场片段 · ${film.scenes[sceneIndex].title}`:`场景 ${film.scenes[sceneIndex].storyNumber||sceneIndex+1} / ${hasStageMedia(film)?storyScenes().length:film.storySceneCount||film.scenes.length} · ${film.scenes[sceneIndex].title}`;if(sceneLabel.textContent!==text)sceneLabel.textContent=text;}
+ const sceneLabel=$('#scene-playback');if(sceneLabel){sceneLabel.hidden=sceneIndex<0;const text=sceneIndex>=0?hasStageMedia(film)&&route==='short'?`人物出场片段 · ${film.scenes[sceneIndex].title}`:`场景 ${film.scenes[sceneIndex].storyNumber||sceneIndex+1}/${hasStageMedia(film)?storySceneTotal():film.storySceneCount||film.scenes.length} · ${film.scenes[sceneIndex].title}`:'';if(sceneLabel.textContent!==text)sceneLabel.textContent=text;}
  const settings=playerSettings();const key=settings?`${settings.speed}-${settings.density}`:'normal-balanced';let cue=film?.dialogues?.find(x=>at>=x.start&&at<x.end);if(!cue&&narrationOn)cue=(activeNarrationCues||film?.narration?.[key])?.find(x=>at>=x.start&&at<x.end);if($('#subtitle'))$('#subtitle').innerHTML=captionOn&&cue?`<span>${cue.kind==='narration'||!cue.speaker?'口述 · ':esc(cue.speaker)+'：'}${esc(cue.text)}</span>`:'';
  if(route==='watch'&&watching){watching.position=at;const entry=library.find(x=>x.id===watching.id);if(entry)entry.position=at;if(Math.abs(at-lastSavedPosition)>4){persist();lastSavedPosition=at;}}
 }
 function seekTo(at){if(!playerReady)return;const keep=playing;player.currentTime=Math.max(clipStart,Math.min(clipEnd-.001,at));if(narration.src)narration.currentTime=Math.max(0,player.currentTime-audioOffset);updateProgress();if(keep&&player.currentTime<clipEnd&&!playing)playMedia();}
 function replay(){if(!playerReady)return;pauseMedia();seekTo(clipStart);playMedia();}
-function toggleNarration(){narrationOn=!narrationOn;const b=$('[data-action="narration"]');b.setAttribute('aria-pressed',String(narrationOn));b.innerHTML=icon('headphones')+`<span>${narrationOn?'旁白开启':'原片声音'}</span>`;$('#video-label-text').textContent=narrationOn?(route==='watch'?`完整视频 · ${currentAudioSource==='volcengine'?'豆包合成旁白':'本地演示旁白'}`:`${playbackScope()} · ${currentAudioSource==='volcengine'?'豆包合成旁白':'本地演示旁白'}`):'原片 · 口述旁白已关闭';if(!narrationOn)narration.pause();else if(playing){narration.currentTime=Math.max(0,player.currentTime-audioOffset);narration.play().catch(mediaError);}updateProgress();announce(narrationOn?'口述旁白已开启':'口述旁白已关闭，正在播放原片声音');}
+function toggleNarration(){if(film.audioMode==='mixed-narration')return;narrationOn=!narrationOn;const b=$('[data-action="narration"]');b.setAttribute('aria-pressed',String(narrationOn));b.innerHTML=icon('headphones')+`<span>${narrationOn?'旁白开启':'原片声音'}</span>`;$('#video-label-text').textContent=narrationOn?(route==='watch'?`完整视频 · ${currentAudioSource==='volcengine'?'豆包合成旁白':(hasStageMedia(film)?'口述旁白':'本地演示旁白')}`:`${playbackScope()} · ${currentAudioSource==='volcengine'?'豆包合成旁白':(hasStageMedia(film)?'口述旁白':'本地演示旁白')}`):'原片 · 口述旁白已关闭';if(!narrationOn)narration.pause();else if(playing){narration.currentTime=Math.max(0,player.currentTime-audioOffset);narration.play().catch(mediaError);}updateProgress();announce(narrationOn?'口述旁白已开启':'口述旁白已关闭，正在播放原片声音');}
 async function showVersionHistory(){
  stopAll();const owner=route==='watch'?watching:activeTask(),source=assistantStore.sources[owner?.id];
  if(hasStageMedia(film)){
@@ -465,8 +464,7 @@ async function handleFile(file){
  const zone=$('#local-preview');if(zone)zone.innerHTML='<p role="status">正在上传视频…</p>';
  try{const p=await uploadVideo(file,prefs.voice);taskFromUploaded(p);showUploadedProgress(p);}catch(e){if(zone)zone.textContent=e.message;toast(e.message);}
 }
-let exitDestination='library';
-function showExit(destination='library'){exitDestination=destination;if(route==='upload'||!task||task.completed){goDestination(destination);return;}showModal('这次制作，下次接着来',`<p class="dialog-copy">你目前在「${stageTitle(task)||'整理素材'}」。保存草稿后离开当前制作，下次可以从这里继续。</p><div class="dialog-actions"><button class="btn" data-action="close-modal">继续制作</button><button class="btn primary" data-action="save-exit">保存草稿并返回</button></div>`);}
+function showExit(){if(route==='upload'||!task||task.completed){goHome();return;}showModal('这次制作，下次接着来',`<p class="dialog-copy">你目前在「${stageTitle(task)||'整理素材'}」。保存草稿后返回首页，下次可以从这里继续。</p><div class="dialog-actions"><button class="btn" data-action="close-modal">继续制作</button><button class="btn primary" data-action="save-exit">保存草稿并返回</button></div>`);}
 function resume(){closeModal();if(task?.sourceProjectId){void projectRequest(task.sourceProjectId).then(p=>{taskFromUploaded(p);if(['generating','error','paused','interrupted'].includes(p.workflow.status))showUploadedProgress(p);else if(p.workflow.stage==='roles')renderRoles();else if(p.workflow.status==='complete')renderComplete();else renderSample();}).catch(e=>toast(e.message));return;}closeModal();stopAll();runId++;if(!task)return renderUpload();selectFilm(task.assetId);film=stageFilm(film,task);if(task.completed)return renderComplete();if(task.stage==='roles')renderRoles();else if(['short','medium'].includes(task.stage))renderSample();else if(task.stage==='full'){if(canComplete(task)){processing('full','继续准备完整视频',['加载已确认设置','检查完整视频','准备成片'],()=>{task.completed=true;task.stage='complete';persist();renderComplete();},stageIndex('full'));}else{task.stage='medium';task.sceneCount=Math.min(3,task.totalScenes);renderSample();}}}
 function editTarget(){
  if(route==='full-review'&&revision)return {scope:'full',source:revision,owner:revision,settings:copySettings(revision.candidate),version:revision.version,history:revision.chat};
@@ -526,7 +524,7 @@ function mountAssistant(){
  const back=oldBack?.querySelector('button');if(back){back.setAttribute('aria-label',back.textContent.trim());back.innerHTML=icon('back')+'我的视频';back.classList.add('workbench-back');top.append(back);}
  const titleBlock=document.createElement('div');titleBlock.className='workbench-project';
  const title=document.createElement('h1');title.tabIndex=-1;title.textContent=route==='watch'?watching.title:route==='full-review'?revision.title:film.title;
- const meta=document.createElement('span');meta.className='workbench-meta';const stageScope=hasStageMedia(film)&&['short','medium','complete','full-review'].includes(route)?route==='short'?'人物出场试听':route==='medium'?(isSecondScene(task)?'第 2 个场景':'首个场景'):'完整成片':film.mediaScene==='s2'?'第 2 个场景':film.scenes.length+' 个场景';meta.textContent=time(hasStageMedia(film)&&route==='short'?stageRange(film,task,1).duration:film.duration)+' · '+stageScope;
+ const meta=document.createElement('span');meta.className='workbench-meta';const mediaStage=hasStageMedia(film)?route==='short'?'人物出场试听':route==='medium'?isSecondScene(task)?'第 2 个场景':'首个场景':route==='complete'||route==='full-review'?'完整成片':storySceneTotal()+' 个场景':film.mediaScene==='s2'?'第 2 个场景':film.scenes.length+' 个场景';meta.textContent=time(hasStageMedia(film)&&['upload','analyzing','roles'].includes(route)?MEDIA_PLANS[film.id].extension.initial.duration:hasStageMedia(film)&&route==='short'?stageRange(film,task,1).duration:film.duration)+' · '+mediaStage;
  titleBlock.append(title,meta);top.append(titleBlock);
  const save=oldHeading?.querySelector('[data-action="save"]');if(save){if(save.disabled){const saved=document.createElement('span');saved.className='workbench-saved';saved.textContent='已在视频库';top.append(saved);}else{save.innerHTML=icon('save')+'保存视频';top.append(save);}}
  header.append(top);if(nav)header.append(nav);oldBack?.remove();oldHeading?.remove();
@@ -552,7 +550,7 @@ function viewStage(n){
  if(route==='upload'||!task)return;
  const active=stageIndex(task.stage);
  if(n>=active)return;
- if(n===0){showModal('本次视频',`<div class="source-top"><img src="${mediaAsset(film.covers[0].file)}" alt="${esc(film.title)}的封面"><div><h3>${esc(film.title)}</h3><p>${time(film.duration)} · 当前影片</p></div></div><p class="dialog-copy">当前制作继续使用这段素材。人物介绍、样片和完整影片均来自同一视频。</p><div class="dialog-actions"><button class="btn primary" data-action="close-modal">返回当前步骤</button></div>`);return;}
+ if(n===0){showModal('本次视频',`<div class="source-top"><img src="${mediaAsset(film.covers[0].file)}" alt="${esc(film.title)}的封面"><div><h3>${esc(film.title)}</h3><p>${time(hasStageMedia(film)?MEDIA_PLANS[film.id].extension.initial.duration:film.duration)} · 当前影片</p></div></div><p class="dialog-copy">当前制作继续使用这段素材。人物介绍、样片和完整影片均来自同一视频。</p><div class="dialog-actions"><button class="btn primary" data-action="close-modal">返回当前步骤</button></div>`);return;}
  if(n===1){showRoleReview('回看角色介绍');return;}
  const stage=hasStageMedia(film)?['','','人物出场片段','首个场景','连续场景'][n]:n===2?'第一个场景':'前面连续场景';
  showModal('已确认的试听阶段',`<p class="dialog-copy">${stage}的试听已经完成。当前正在「${stageTitle(task)}」。继续试听当前版本，就可以沿着这次制作往下走。</p><div class="dialog-actions"><button class="btn primary" data-action="close-modal">返回当前步骤</button></div>`);
@@ -560,20 +558,19 @@ function viewStage(n){
 function handleAction(action,b){
  if(film.audioMode==='mixed-narration'&&(['caption','narration'].includes(action)||action==='revise-full'&&!hasStageMedia(film)))return;
  switch(action){
- case 'home':case 'library':case 'about':if(!['home','about','library','watch','complete','upload','full-review'].includes(route)){showExit(action);}else goDestination(action);break;
+ case 'home':case 'library':if(!['home','library','watch','complete','upload','full-review'].includes(route)){showExit();}else goHome(action==='library');break;
  case 'prompt-library':stopAll();void promptLibrary.open();break;
  case 'create':beginCreate();break;
- case 'new-task':closeModal();task=null;persist();renderUpload();break;
+ case 'new-task':closeModal();task=null;selectFilm(defaultFilm.id);persist();renderUpload();break;
  case 'resume':resume();break;
  case 'resume-revision':resumeRevision();break;
  case 'upload':keyboardReader.stop();stopGuide();$('#file-input').click();break;
  case 'demo':if($('#catalog-source'))selectFilm($('#catalog-source').value);startDemo();break;
- case 'about-read':void say('about',ABOUT_NARRATION,true);break;
  case 'intro-read':void say('home',pageGuide('home',guideContext()),true);break;
  case 'link':showLink();break;
 
  case 'exit':showExit();break;
- case 'save-exit':if(persist()){closeModal();goDestination(exitDestination);}break;
+ case 'save-exit':if(persist()){closeModal();goHome();}break;
  case 'view-stage':viewStage(Number(b.dataset.stage));break;
  case 'confirm':confirm();break;
  case 'extend-scenes':confirm('next');break;
@@ -630,7 +627,6 @@ document.addEventListener('keydown',e=>{
  if(roleAction){e.preventDefault();if(roleAction.action==='role')playRole(roleAction.index);else if(roleAction.action==='continue')confirm();else closeModal();return;}
  if(modal.open||e.target.closest('#chat,input,textarea,select,button,summary,a,video,.task-inline-stream,[contenteditable="true"]'))return;
  if(route==='home'&&(e.key==='Enter'||e.code==='Space')){e.preventDefault();goHome(true);return;}
- if(route==='about')return;
  if(e.code==='Space'){e.preventDefault();if(route==='library'){if(!prefs.reader){prefs.guide=true;persist();}beginCreate();}else if(route==='upload')$('#file-input').click();else if(['short','medium','watch','full-review'].includes(route)){playing?pauseMedia():playMedia();}}
  else if(e.key==='Enter'&&['roles','short','medium'].includes(route)){e.preventDefault();confirm();}
  else if(prefs.shortcuts&&/^[1-9]$/.test(e.key)){const i=Number(e.key)-1;if(route==='home'||route==='library'){const visible=[...main.querySelectorAll('[data-action="watch"]')];if(visible[i])visible[i].click();}}
@@ -644,7 +640,7 @@ document.addEventListener('visibilitychange',()=>{if(document.hidden){assistant.
 async function boot(){renderHome();await speech.discover();
  installAudioPreload({speech,enabled:()=>liveSpeech()&&!prefs.reader&&(prefs.guide||prefs.focusReadout),voice:()=>prefs.voice,guides:()=>{
   const context=guideContext();return [currentGuideText(),currentGuideText(currentGuide,{detailed:true}),
-   ...['home','about','library','upload','roles','short','medium','complete','watch','saved'].map(key=>briefPageGuide(key,context)),
+   ...['home','library','upload','roles','short','medium','complete','watch','saved'].map(key=>briefPageGuide(key,context)),
    '解析已完成，按空格继续。','样片已就绪，按空格继续下一步。','整片已就绪，按空格继续下一步。',
    ...roleTourSteps(film,{shortcuts:prefs.shortcuts}).map(step=>step.text)];
  }});

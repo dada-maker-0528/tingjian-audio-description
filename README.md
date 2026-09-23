@@ -1,8 +1,10 @@
-# 智享视界 · AI 口述影像
+# 听见 · AI 口述影像
 
-> **2026-09-22 当前联测分支：`codex/upstream-design-code-flow`。** [线上测试入口](https://tingjian.43.129.168.70.sslip.io/)使用团队账号保护。请先阅读[比赛联测说明与已知问题](docs/比赛联测说明-20260922.md)：主要演示阻断已修复并上线，演示片与真实上传全链路各完成一轮回归；测试范围和现场待验证项见联测说明。
+> **2026-09-23 赛事代码分支：`codex/upstream-design-code-flow`。** [线上测试入口](https://tingjian.43.129.168.70.sslip.io/)使用独立账号保护。组委会独立部署请先阅读 [组委会运行说明](README-组委会运行.md)，自行填写模型密钥；不要提交填好密钥的 `.env`。
 >
-> 此分支运行真实 Node 后端：Node.js 22+，安装依赖并按 `.env.example` 创建本机 `.env` 后执行 `npm run dev`，默认入口 `http://127.0.0.1:5294/`。真实媒体处理需 FFmpeg 与模型配置；`npm run build` 输出 `dist/node`。当前服务器发布记录见 [RELEASE-20260922](deploy/RELEASE-20260922.md)。下文 `.dev.vars`、Sites、Cloudflare Worker 的部署说明属于历史运行方式；Worker 构建现使用 `npm run build:worker`。本分支推送不会更新当前 Node 服务器。
+> 此分支运行真实 Node 后端：Node.js 22+、FFmpeg、`npm ci`、复制 `.env.example` 为 `.env`、`npm run check:contest`、`npm start`。默认入口 `http://127.0.0.1:5294/`。内置视频可直接播放；真实上传、生成和实时识别需要组委会自己的模型密钥与网络。本分支推送不会更新当前 Node 服务器。下文 `.dev.vars`、Sites、Cloudflare Worker 的部署说明属于历史运行方式。
+
+## 历史实现说明（以组委会运行说明为准）
 
 产品大王队作品，保留听见原 Logo。首页为项目开屏介绍，点击“进入体验”进入视频库。
 

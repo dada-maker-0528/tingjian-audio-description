@@ -13,8 +13,8 @@ export function validateInput(body){
  if(body.kind==='guide'){
   if(typeof body.text!=='string'||!body.text.trim()||body.text.length>400)throw new SpeechError('bad_text','语音文字需要在 1—400 字之间。',400);
   return {kind:'guide',text:body.text.trim(),voice};
- }
- const film=findFilm(body.filmId);
+ } const film=findFilm(body.filmId);
+ if(film?.audioMode==='mixed-narration')throw new SpeechError('mixed_narration','预制样片已包含旁白，无需再次合成。',400);
  if(body.kind!=='narration'||!film||!isSceneRange(film,body.start,body.duration)||body.scenePlanVersion&&body.scenePlanVersion!==film.scenePlanVersion||!['normal','slow'].includes(body.speed)||!['balanced','concise'].includes(body.density))throw new SpeechError('bad_input','试听范围需要覆盖按顺序排列的完整场景，请刷新后再试。',400);
  return {kind:'narration',filmId:film.id,scenePlanVersion:film.scenePlanVersion,start:body.start,duration:body.duration,speed:body.speed,density:body.density,voice};
 }

@@ -1,7 +1,9 @@
 import {defaults} from './flow.js';
-// These five QA uploads were explicitly withdrawn from the user-facing library.
-// Keep their server media and history; future user uploads remain visible.
+// Explicitly withdrawn uploads stay out of the library and restored browser data.
+// Other existing and future user uploads remain visible.
 const withdrawnProjects=new Set([
+ 'd53b3a70-3220-41b9-a45a-89c3e4043c92',
+ '85d41865-6bc4-4d81-9f71-6d8972104fc9',
  '72bc6273-d3b0-43e3-a762-2fd11f4139d9',
  'fbfc9220-baaa-4750-9be6-adf35e7e50a8',
  '274c6da5-8f87-4a6b-8f0d-b67b2aac8d7d',
@@ -11,9 +13,9 @@ const withdrawnProjects=new Set([
 export const isListedVideo=item=>![item.id,item.sourceProjectId,item.projectId,item.assetId].some(id=>withdrawnProjects.has(String(id||'').replace(/^upload(?:ed)?-/,'')));
 
 export function mergePublicLibrary(catalog,saved=[],initialSettings=defaults()){
- const available=new Map(catalog.map(f=>[f.id,f]));
- const result=saved.filter(x=>available.has(x.assetId));const added=[];
- for(const film of catalog){const id=film.id+'-original';const found=result.find(x=>x.id===id);
+ const listed=catalog.filter(isListedVideo),available=new Map(listed.map(f=>[f.id,f]));
+ const result=saved.filter(x=>isListedVideo(x)&&available.has(x.assetId));const added=[];
+ for(const film of listed){const id=film.id+'-original';const found=result.find(x=>x.id===id);
   if(found){found.title=film.title;found.description=film.description||'';found.duration=film.duration;found.public=true;}
   else added.unshift({id,assetId:film.id,title:film.title,description:film.description||'',duration:film.duration,settings:{...initialSettings},position:0,created:0,public:true});
  }
@@ -22,4 +24,4 @@ export function mergePublicLibrary(catalog,saved=[],initialSettings=defaults()){
 export function visibleLibrary(items,{query='',all=false}={}){
  const q=query.trim().toLocaleLowerCase();const matches=items.filter(isListedVideo).filter(x=>x.title.toLocaleLowerCase().includes(q));return all?matches:matches.slice(0,6);
 }
-export const hasNarration=film=>!!film?.narration?.['normal-balanced']?.length&&!!film.fallbackAudio?.['normal-balanced'];
+export const hasNarration=film=>film?.audioMode==='mixed-narration'||!!film?.narration?.['normal-balanced']?.length&&!!film.fallbackAudio?.['normal-balanced'];

@@ -1,0 +1,86 @@
+{
+  "id": "nezha-s1-20260922",
+  "title": "哪吒之魔童闹海 · S1",
+  "duration": 39.079,
+  "kind": "预制口述样片",
+  "description": "云雾中，飞猪驮着哪吒和太乙真人飞行。S1 预制样片，已包含电影原声与旁白。",
+  "shortDescription": "S1 · 云中飞行。39 秒完整场景，电影原声与旁白已混合。",
+  "video": "assets/NZ2_S1_demo_h264.mp4",
+  "fileName": "NZ2_S1_demo_h264.mp4",
+  "sha256": "46a707e05818b7e70f3411afae2d3ff81a99b1b8d21097ccdacd305ddc1bc9c0",
+  "bytes": 17427594,
+  "audioMode": "mixed-narration",
+  "subtitlesBurnedIn": true,
+  "guideFiles": {},
+  "guides": {},
+  "fallbackAudio": {},
+  "prebuiltOnline": {},
+  "dialogues": [],
+  "narration": {
+    "normal-balanced": [
+      {
+        "start": 0.97,
+        "end": 3.43,
+        "maxDuration": 2.46,
+        "text": "云雾中飞猪驮着师徒俩飞行",
+        "kind": "narration"
+      },
+      {
+        "start": 3.57,
+        "end": 5.88,
+        "maxDuration": 2.31,
+        "text": "哪吒坐在飞猪头上半眯着眼",
+        "kind": "narration"
+      },
+      {
+        "start": 6.28,
+        "end": 10.15,
+        "maxDuration": 3.87,
+        "text": "太乙真人抓起大把美食塞入嘴里吃的满嘴流油",
+        "kind": "narration"
+      },
+      {
+        "start": 18.68,
+        "end": 20,
+        "maxDuration": 1.32,
+        "text": "哪吒斜眼嫌弃",
+        "kind": "narration"
+      }
+    ]
+  },
+  "roles": [
+    {
+      "name": "哪吒",
+      "detail": "黑发扎起，额头有红色印记，穿红色衣服，坐在飞猪头上。",
+      "image": "nz2-s1-nezha.jpg",
+      "pos": "50% 45%",
+      "size": "cover",
+      "nameSource": "角色名来自随包文稿"
+    },
+    {
+      "name": "太乙真人",
+      "detail": "身形圆胖，头顶束发，穿蓝色外衣，坐在飞猪背上吃东西。",
+      "image": "nz2-s1-taiyi.jpg",
+      "pos": "50% 45%",
+      "size": "cover",
+      "nameSource": "角色名来自随包文稿"
+    }
+  ],
+  "covers": [
+    {
+      "file": "nz2-s1-cover.jpg",
+      "alt": "云雾中的山峰间，飞猪驮着哪吒和太乙真人飞行"
+    }
+  ],
+  "credits": "用户提供的 S1 预制样片 · 剪辑师旁白与电影原声已混合 · 保留片内字幕 · 旁白文稿来自随包材料",
+  "scenePlanVersion": "nezha-s1-scenes-v1",
+  "scenePlanSource": "按所提供 S1 场景包保留为一个完整场景，不按旁白句子拆分。",
+  "scenes": [
+    {
+      "id": "scene-s1",
+      "title": "S1 · 云中飞行",
+      "start": 0,
+      "end": 39.079
+    }
+  ]
+}

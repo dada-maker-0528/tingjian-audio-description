@@ -22,6 +22,7 @@ const idOK=id=>typeof id==='string'&&/^[a-zA-Z0-9-]{1,64}$/.test(id);
 async function locked(id,work){const next=(locks.get(id)||Promise.resolve()).catch(()=>{}).then(work);locks.set(id,next);try{return await next;}finally{if(locks.get(id)===next)locks.delete(id);}}
 function catalogParent(source){
  const film=films.find(f=>f.id===source.filmId);if(!film||!idOK(source.workspaceId))throw new Error('公开视频或工作区标识无效');
+ if(film.audioMode==='mixed-narration')throw conflict('预制样片的原声与旁白已混合，暂不支持单独修改旁白');
  const existing=projects.get(source.workspaceId);if(existing){if(existing.assistantCatalog!==film.id)throw conflict('此工作区属于其他视频');return existing;}
  const settings={...preferences(),...(source.settings||{})};settings.speed=settings.speed==='slow'?.8:settings.speed==='normal'?1:settings.speed;if(!validatePreferences(settings))throw new Error('旁白基准设置无效');
  const start=Number(source.start||0),end=Number(source.end||film.duration);if(!Number.isFinite(start)||!Number.isFinite(end)||start<0||end>film.duration||end<=start)throw new Error('播放范围无效');

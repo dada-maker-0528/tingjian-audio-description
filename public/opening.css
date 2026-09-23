@@ -1,56 +1,57 @@
-/* Reference: silver light, charcoal grain, Song lettering and an eye becoming sound. */
-.intro-page{background:#252829;color:#f4f3ef}
-.intro-page .site-header{position:absolute;inset:0 0 auto;max-width:none;height:106px;padding:28px 7.5vw;z-index:2;justify-content:space-between}
-.intro-page .site-header .brand{gap:10px;padding:8px 0;background:transparent;border-radius:0;font-size:23px;color:#f4f3ef}
-.intro-page .brand-mark{width:31px;height:31px}.intro-page .brand-mark img{filter:grayscale(1) invert(1)}.intro-page .brand-wordmark img{filter:grayscale(1) brightness(0) invert(1)}
-.intro-page .brand-sub,.intro-page .header-actions,.intro-page .demo-notice,.intro-page .site-footer,.intro-page .main-nav [data-action="home"],.intro-page .main-nav [data-action="about"],.intro-page .main-nav [data-action="prompt-library"]{display:none}
-.intro-page .main-nav{margin:0;height:auto;display:block}
-.intro-page .main-nav [data-action="library"]{display:inline-flex;align-items:center;gap:22px;min-height:44px;padding:9px 18px;color:#f4f3ef;background:#2025256b;border:1px solid #e8e8e17a;border-radius:3px;font-size:13px}
-.intro-page .main-nav [data-action="library"]::after{content:'↗';position:static;background:none;width:auto;height:auto;border-radius:0;font-size:18px}
-.intro-page .main-nav [data-action="library"]:hover{background:#202525a6}
-.intro-page .skip-link:focus{z-index:20}
-.opening{position:relative;isolation:isolate;min-height:max(720px,100svh);display:flex;flex-direction:column;justify-content:center;padding:175px 7.5vw 125px;overflow:hidden;background:#252829}
-.opening::before{content:'';position:absolute;z-index:-2;inset:0;background:url('assets/tingjian-opening-soft-grain-v2.png') center 51%/cover no-repeat}
-.opening::after{content:'';position:absolute;z-index:-1;inset:0;background:linear-gradient(90deg,#15191a18,transparent 65%),linear-gradient(0deg,#18202038,transparent 22%)}
-.opening-art{position:absolute;width:69%;height:100%;right:1%;top:0;color:#eeeee9;opacity:.85;pointer-events:none}
-.opening-eyebrow{position:absolute;top:140px;left:7.5vw;font-size:16px;font-weight:400;letter-spacing:.06em;color:#ecece7;margin:0}
-.opening-content{position:relative;z-index:1;width:max-content;max-width:100%;padding-block:24px}
-.opening h1{font-family:'Noto Serif CJK SC','Songti SC',SimSun,serif;font-size:clamp(78px,7.3vw,112px);font-weight:400;color:#f4f3ef;letter-spacing:.18em;margin:0 0 27px;line-height:1.15;outline-offset:10px}
-.opening h1:focus{outline:none;box-shadow:none}
-.opening-rule{display:block;width:53px;height:5px;background:#d5d6d1;margin-bottom:23px}
-.opening-tagline{font-size:21px;font-weight:400;letter-spacing:.04em;line-height:1.55;margin:0 0 19px;color:#f4f3ef}
-.opening-description{font-size:13px;font-weight:400;color:#d8dad6;line-height:1.9;letter-spacing:.025em;margin:0;max-width:29em}
-.opening-actions{display:flex;align-items:center;gap:27px;margin-top:29px}
-.opening-enter{display:inline-flex;align-items:center;justify-content:space-between;gap:29px;min-height:49px;padding:11px 18px 11px 21px;border:1px solid #f0efea;border-radius:3px;background:#f0efea;color:#212625;font-size:14px;font-weight:500;letter-spacing:.05em;transition:background .18s}
-.opening-enter>span{display:grid;place-items:center;width:20px;height:20px}
-.opening-enter svg{width:20px;height:20px}.opening-enter:hover{background:#fff}
-.opening-listen{display:inline-flex;align-items:center;gap:9px;min-height:48px;color:#f1f1ec;font-size:13px;padding:10px 0;border-bottom:1px solid #d1d4cd66}
-.opening-listen:hover{color:#fff;border-color:#eee}.opening-listen svg{width:17px;height:17px}
-.opening-shortcut{display:flex;align-items:center;gap:8px;margin-top:15px;color:#d7d9d4;font-size:11px;letter-spacing:.03em}
-.opening-shortcut kbd{background:#2025253d;border:1px solid #b5b8b080;border-radius:3px;color:inherit;font-size:10px;padding:2px 5px;box-shadow:none}
-.opening-footer{position:absolute;bottom:39px;left:7.5vw;right:7.5vw;display:flex;align-items:center;justify-content:space-between;gap:24px}
-.opening-credit{font-size:15px;letter-spacing:.04em;color:#efefe9}.opening-credit-divider{color:#b5b9b0;margin-inline:20px}.opening-produced{font-size:11px;color:#d2d5cd;margin-left:8px}.opening-note{font-size:12px;letter-spacing:.07em;color:#d2d5cd}
-.intro-page button:focus-visible{outline:2px solid #fff;outline-offset:6px;box-shadow:0 0 0 3px #202525}
-@media(min-width:1600px){.opening-art{right:5%;width:65%}}
-@media(min-width:701px) and (max-width:1050px){.opening-art{width:78%;right:-12%;opacity:.65}.opening-tagline{font-size:19px}.opening-credit{font-size:13px}.opening-note{font-size:11px}.opening-credit-divider{margin-inline:12px}}
-@media(min-width:701px) and (max-height:780px){.opening{min-height:700px;padding-top:156px;padding-bottom:92px}.opening-eyebrow{top:120px}.opening-content{padding-block:12px}.opening h1{font-size:88px;margin-bottom:22px}.opening-description{font-size:12px}.opening-actions{margin-top:23px}.opening-footer{bottom:28px}}
-@media(max-width:700px){
- .intro-page .site-header{height:90px;padding:22px 25px}.intro-page .site-header .brand{font-size:21px}.intro-page .brand-mark{width:28px;height:28px}
- .intro-page .main-nav [data-action="library"]{padding:8px 13px;gap:15px;font-size:12px}
- .opening{min-height:max(850px,100svh);padding:156px 25px 350px;justify-content:flex-start}
- .opening::before{background-position:55% center}.opening::after{background:linear-gradient(180deg,#171c1d38,transparent 55%,#171c1d26)}
- .opening-eyebrow{top:119px;left:25px;font-size:13px}
- .opening-content{padding:22px 0 0;width:100%}
- .opening h1{font-size:76px;letter-spacing:.16em;margin-bottom:22px}
- .opening-rule{width:39px;height:4px;margin-bottom:20px}
- .opening-tagline{font-size:18px;letter-spacing:.025em;margin-bottom:17px}
- .opening-description{font-size:12px;line-height:1.8}
- .opening-actions{gap:24px;margin-top:26px}.opening-enter{font-size:14px;gap:24px;padding-left:18px;min-height:49px}.opening-listen{font-size:12px}
- .opening-shortcut{font-size:10px;margin-top:14px}
- .opening-art{width:108%;height:320px;top:auto;bottom:34px;right:-5%;opacity:.77}
- .opening-footer{left:25px;right:25px;bottom:25px;gap:10px;justify-content:flex-end}
- .opening-credit{font-size:11px}.opening-credit-divider{margin-inline:12px}.opening-produced{font-size:10px;margin-left:5px}.opening-note{display:none}
+@font-face{font-family:"Tingjian Serif";src:url("assets/fonts/tingjian-serif.woff2") format("woff2");font-weight:200 900;font-style:normal;font-display:swap}
+body.silver-home-mode,body:has(.silver-home){margin:0;background:#08090a;color:#f4f4f2;color-scheme:dark}
+body:has(.silver-home)>.site-header,body:has(.silver-home)>.site-footer,body:has(.silver-home)>.demo-notice{display:none!important}
+body:has(.silver-home) #main{max-width:none;margin:0;padding:0;outline:none}
+.silver-home{position:relative;isolation:isolate;width:100%;height:100svh;min-height:680px;margin:0;padding:0;overflow:hidden;background:#08090a;--silver-serif:"Tingjian Serif","Noto Serif SC","STSong",serif}
+.silver-material{position:absolute;inset:0;z-index:-2;background:url("assets/opening-silver-background.png") center/cover no-repeat;pointer-events:none}
+.silver-home .opening-signal{position:absolute;inset:0;z-index:-1;display:block;width:100%;height:100%;pointer-events:none;fill:none;stroke:none}
+.silver-brand{position:absolute;top:5.52%;left:5.74%;display:flex;align-items:center;gap:17px}
+.silver-brand-mark{display:block;width:61px;height:60px;filter:invert(1);border-radius:14px}
+.silver-brand-word{display:block;width:75px;height:37px;filter:brightness(0) invert(1)}
+.silver-copy{position:absolute;left:6.58%;top:26%;color:#f7f7f5}
+.silver-eyebrow{margin:0;font:400 20px/1.4 Arial,"Microsoft YaHei",sans-serif;letter-spacing:10px}
+.silver-copy h1{display:grid;grid-template-columns:1em .587em 1.08em;align-items:center;width:max-content;margin:30.4px 0 0 -2px;font:650 clamp(108px,8.255vw,160px)/1 var(--silver-serif);letter-spacing:0;color:#fafaf8}
+.silver-copy h1>span:last-child{display:block;transform:translateY(3px) scale(1.054,.961);transform-origin:left top}
+.silver-title-dot{display:block;justify-self:center;width:.116em;height:.116em;border-radius:50%;background:currentColor;font-size:1em;line-height:0;overflow:hidden;text-indent:-999px;transform:translate(.047em,.051em)}
+.silver-rule{height:4px;width:62px;margin:42px 0 28px;background:#f3f3f0}
+.silver-tagline{margin:0;font:400 clamp(21px,1.56vw,28px)/1.5 var(--silver-serif);letter-spacing:5px;white-space:nowrap}
+.silver-entry{display:flex;align-items:center;gap:23px;width:max-content;min-height:66px;margin:37px 0 0 -3px;padding:0;border:0;background:transparent;color:#edeeeb;font:400 18px/1.5 var(--silver-serif);letter-spacing:2px;cursor:pointer}
+.silver-play{display:grid;place-items:center;width:66px;height:66px;flex:none;border:1.5px solid #e6e8e5;border-radius:50%;transition:background .2s,box-shadow .2s}
+.silver-entry .silver-play svg{display:block;width:25px;height:25px;fill:currentColor;stroke:none;margin-left:3px}
+.silver-entry .silver-arrow{width:22px;height:22px;margin-left:-9px;fill:none;stroke:currentColor;stroke-width:1.2}
+.silver-entry:hover .silver-play{background:#ffffff13;box-shadow:0 0 22px #ffffff14}
+.silver-footer{position:absolute;bottom:7.35%;left:5.02%;right:3.58%;display:flex;align-items:center;justify-content:flex-end;gap:24px}
+.silver-signature{display:flex;align-items:center;gap:30px;margin:25px 0 0;font:400 16px/1.5 Arial,"Microsoft YaHei",sans-serif;letter-spacing:1px;color:#d6d7d5;white-space:nowrap}
+.silver-signature [lang=en]{font-size:9px;letter-spacing:7px;color:#c0c2c2}
+body.silver-home-mode .sr-only{top:0;left:0}
+body.silver-home-mode .focus-readout{position:fixed;z-index:10;bottom:16px;left:16px;right:16px;margin:0 auto;max-width:740px}
+body.silver-home-mode :is(a,button,input):focus-visible{outline:2px solid #f4f4f2;outline-offset:6px}
+body.silver-home-mode .skip-link{background:#f4f4f2;color:#161819}
+.silver-copy h1:focus-visible{outline:none;box-shadow:none}
+@media(max-width:1400px) and (min-width:761px){.silver-brand{gap:14px}.silver-brand-mark{width:50px;height:49px}.silver-brand-word{width:66px;height:32px}.silver-eyebrow{font-size:16px;letter-spacing:8px}.silver-copy h1{margin-top:18px}.silver-rule{margin:18px 0;width:51px;height:3px}.silver-tagline{font-size:21px;letter-spacing:4px}.silver-entry{margin-top:26px;font-size:16px;gap:19px;min-height:56px}.silver-play{width:56px;height:56px}.silver-signature{font-size:13px;gap:20px}.silver-signature [lang=en]{font-size:8px;letter-spacing:5px}}
+@media(min-aspect-ratio:3/1) and (min-width:1000px){
+ .silver-home{min-height:360px}
+ .silver-brand{top:7%;left:4%;gap:12px}.silver-brand-mark{width:42px;height:41px}.silver-brand-word{width:59px;height:29px}
+ .silver-copy{left:12%;top:50%;transform:translateY(-50%)}
+ .silver-eyebrow{font-size:14px;letter-spacing:8px}.silver-copy h1{font-size:clamp(76px,20svh,130px);margin-top:10px;line-height:1.08}
+ .silver-rule{width:42px;height:3px;margin:12px 0}.silver-tagline{font-size:clamp(18px,4.5svh,25px);letter-spacing:4px}
+ .silver-entry{position:absolute;left:calc(100% + 62px);bottom:0;margin:0;min-height:52px;gap:17px;font-size:17px;white-space:nowrap}.silver-play{width:52px;height:52px}
+ .silver-home .opening-signal{left:27%;top:-35%;width:76%;height:170%}
+ .silver-footer{bottom:5%;left:4%;right:3%}
+ .silver-signature{font-size:13px;margin:0;gap:22px}.silver-signature [lang=en]{font-size:8px;letter-spacing:5px}
 }
-@media(max-width:359px){.intro-page .site-header{padding-inline:20px}.opening{padding-inline:20px}.opening-eyebrow{left:20px}.opening-actions{gap:18px}.opening-enter{gap:17px;padding-inline:15px}.opening-listen{gap:7px}.opening-footer{left:20px;right:20px}.opening-credit-divider{margin-inline:8px}}
-@media(prefers-reduced-motion:reduce){.opening-enter{transition:none}}
-@media(forced-colors:active){.intro-page,.opening{background:Canvas;color:CanvasText}.opening::before,.opening::after,.opening-art{display:none}.opening :is(h1,p,span),.intro-page .main-nav button{color:CanvasText!important}.opening-rule{background:CanvasText}.intro-page button{border:1px solid ButtonText!important}.intro-page button:focus-visible{outline-color:Highlight}.intro-page .brand img{filter:none}}
+@media(max-width:760px){
+ .silver-home{min-height:740px}
+ .silver-material{background-position:58% center}
+ .silver-brand{top:28px;left:28px;gap:12px}.silver-brand-mark{width:43px;height:42px}.silver-brand-word{width:59px;height:29px}
+ .silver-copy{top:145px;left:28px;right:22px}
+ .silver-eyebrow{font-size:13px;letter-spacing:7px}
+ .silver-copy h1{font-size:104px;margin-top:20px;line-height:1.1}
+ .silver-rule{width:44px;height:3px;margin:23px 0 20px}
+ .silver-tagline{font-size:21px;letter-spacing:2px}
+ .silver-entry{margin-top:25px;gap:18px;font-size:16px;min-height:54px}.silver-play{width:54px;height:54px}
+ .silver-home .opening-signal{left:-100%;top:30%;width:230%;height:85%;opacity:.72}
+ .silver-footer{bottom:23px;left:28px;right:23px;align-items:flex-end;gap:10px}
+ .silver-signature{display:block;text-align:right;font-size:11px;margin:0}.silver-signature [lang=en]{display:block;font-size:6px;letter-spacing:3px;margin-top:9px}
+}
+@media(prefers-reduced-motion:reduce){.silver-play{transition:none}}
