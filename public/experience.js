@@ -20,7 +20,7 @@ import {DEFAULT_VOICE,VOICES,isVoice,voiceInfo} from './voices.js';
 import {FocusReader} from './focus-reader.js';
 import {PROMPT_CHANNELS,promptRates,rateForGuide,setChannelRate,promptRateLabel,promptText,promptUtterance,applyPromptAudioRate} from './prompt-speech.js';
 import {GuideSequence,pageGuide,briefPageGuide,roleIntroduction,roleChoices,roleTourSteps,roleKeyAction} from './page-guidance.js';
-import {mergePublicLibrary,visibleLibrary,hasNarration} from './library.js';
+import {mergePublicLibrary,visibleLibrary,hasNarration,isListedVideo} from './library.js';
 let film=defaultFilm;
 import {assetURL} from './asset-url.js';
 Object.assign(icons,{pause:'<path d="M8 5v14M16 5v14" stroke-width="4"/>',replay:'<path d="M3 10a9 9 0 119 11M3 4v6h6"/>',back10:'<path d="M4 9a8 8 0 111 9M4 3v6h6"/><path d="M9 12v5M12 12h3v5h-3z"/>',forward10:'<path d="M20 9a8 8 0 10-1 9M20 3v6h-6"/><path d="M9 12v5M12 12h3v5h-3z"/>',chat:'<path d="M21 11a8 8 0 01-8 8H7l-5 3V11a9 9 0 0119 0zM7 9h9M7 13h6"/>',mic:'<rect x="9" y="2" width="6" height="13" rx="3"/><path d="M5 10v2a7 7 0 0014 0v-2M12 19v3M8 22h8"/>',search:'<circle cx="10" cy="10" r="6"/><path d="m15 15 6 6"/>',fullscreen:'<path d="M3 8V3h5M16 3h5v5M21 16v5h-5M8 21H3v-5"/>',clock:'<circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/>',spark:'<path d="m12 3 2.4 6.6L21 12l-6.6 2.4L12 21l-2.4-6.6L3 12l6.6-2.4zM20 2v4M18 4h4"/>',save:'<path d="M5 3h14v18l-7-4-7 4z"/>',file:'<path d="M14 3H5v18h14V8zM14 3v5h5M9 13l5 3-5 3z"/>'});
@@ -34,9 +34,9 @@ let prefs={guide:true,reader:false,shortcuts:true,focusReadout:true,voice:DEFAUL
 if(!isVoice(prefs.voice))prefs.voice=DEFAULT_VOICE;
 prefs.promptRates=promptRates(prefs.promptRates);delete prefs.promptRate;
 let library=mergePublicLibrary(films,(Array.isArray(stored.library)?stored.library:[]).filter(x=>x&&typeof x.id==='string'&&validSettings(x.settings)).map(x=>({...x,assetId:x.assetId||defaultFilm.id,settings:{...defaults(),...x.settings}})),{...defaults(),voice:prefs.voice});
-let task=stored.draft&&validSettings(stored.draft.candidate)&&findFilm(stored.draft.assetId||defaultFilm.id)?stored.draft:null;
+let task=stored.draft&&isListedVideo(stored.draft)&&validSettings(stored.draft.candidate)&&findFilm(stored.draft.assetId||defaultFilm.id)?stored.draft:null;
 if(task){task.assetId=task.assetId||defaultFilm.id;task.candidate={...defaults(),...task.candidate};if(task.confirmed)task.confirmed={...defaults(),...task.confirmed};task=migrateTaskToScenes(task,findFilm(task.assetId));}
-let revision=stored.revision&&stored.revision.stage==='full-review'&&!stored.revision.completed&&validSettings(stored.revision.candidate)&&findFilm(stored.revision.assetId)?stored.revision:null;
+let revision=stored.revision&&isListedVideo(stored.revision)&&stored.revision.stage==='full-review'&&!stored.revision.completed&&validSettings(stored.revision.candidate)&&findFilm(stored.revision.assetId)?stored.revision:null;
 if(revision){revision.candidate=copySettings(revision.candidate);revision.renderedVersion=null;}
 let regenerationBusy=false;
 let route='home',watching=null,guideToken=0,runId=0,toastId,returnFocus=null,lastMessage='',currentGuide='home',previewUrl=null,guideDetailPrefix='',lastAutoPage='';
@@ -70,8 +70,8 @@ function taskFromUploaded(p){
  assistantStore.sources[task.id]={projectId:p.id};persist();return current;
 }
 async function loadUploaded(){
- try{const data=await backendRequest('/api/bootstrap');for(const p of data.projects){const current=updateUploaded(p);if(!library.some(x=>x.id==='uploaded-'+p.id))library.push({id:'uploaded-'+p.id,assetId:current.id,title:p.title,duration:p.duration,settings:current.playbackSettings,position:p.workflow.position||0,sourceProjectId:p.id,created:0,public:false});assistantStore.sources['uploaded-'+p.id]={projectId:p.id};}
-  if(stored.draft?.sourceProjectId){const p=data.projects.find(p=>p.id===stored.draft.sourceProjectId);if(p)taskFromUploaded(p);}persist();
+ try{const data=await backendRequest('/api/bootstrap');for(const p of data.projects.filter(isListedVideo)){const current=updateUploaded(p);if(!library.some(x=>x.id==='uploaded-'+p.id))library.push({id:'uploaded-'+p.id,assetId:current.id,title:p.title,duration:p.duration,settings:current.playbackSettings,position:p.workflow.position||0,sourceProjectId:p.id,created:0,public:false});assistantStore.sources['uploaded-'+p.id]={projectId:p.id};}
+  if(stored.draft?.sourceProjectId&&isListedVideo(stored.draft)){const p=data.projects.find(p=>p.id===stored.draft.sourceProjectId);if(p)taskFromUploaded(p);}persist();
  }catch(error){console.warn('Uploaded library unavailable:',error.message);}
 }
 async function confirmUploaded(direction){
@@ -104,7 +104,10 @@ const stageTitle=owner=>sceneStageLabel(owner)||stageNames[owner?.stage]||'准�
 const playbackScope=()=>['short','medium'].includes(route)?sceneScopeLabel(film,scenePreviewCount(task)):'完整视频';
 const activeTask=()=>route==='full-review'?revision:task;
 const playerSettings=()=>route==='watch'?watching?.settings:activeTask()?.candidate;
-const guideContext=()=>({film,task:activeTask(),filmCount:films.length,libraryCount:library.length,shortcuts:prefs.shortcuts});
+const guideContext=()=>{
+ const libraryTotal=library.filter(item=>isListedVideo(item)&&findFilm(item.assetId)).length;
+ return {film,task:activeTask(),filmCount:films.length,libraryTotal,libraryCount:route==='library'?main.querySelectorAll('#cards .film-card').length:libraryTotal,libraryQuery:route==='library'?($('#search')?.value||''):'',shortcuts:prefs.shortcuts};
+};
 const currentGuideText=(key=currentGuide,{detailed=false}={})=>{
  const words=detailed?(pageGuide(key,guideContext())||film?.guides?.[key]||''):briefPageGuide(key,guideContext());
  return words+(task?.assistantMockApproved&&key==='complete'?' 修改方案为模拟结果。':'');
@@ -141,7 +144,7 @@ function page(html,guideKey,focus=true,options={}){
  processingView?.dispose();processingView=null;main.classList.remove('process-page');assistant.hide();stopAll();clearPlayer();main.innerHTML=html;const heading=main.querySelector('h1');if(heading)heading.tabIndex=-1;fillIcons();
  $('.main-nav [data-action="home"]').classList.toggle('active',route==='home');$('.main-nav [data-action="library"]').classList.toggle('active',route==='library');
  currentGuide=guideKey||route;guideDetailPrefix=options.introPrefix||'';if(focus)focusTitle();updateGuideUI();mountAssistant();
- const pageKey=[currentGuide,film.id,['short','medium'].includes(route)?task?.sceneCount:'',route==='watch'?watching?.id:''].join(':');
+ const pageKey=JSON.stringify([currentGuide,film.id,['short','medium'].includes(route)?task?.sceneCount:'',route==='watch'?watching?.id:'',route==='library'?[guideContext().libraryCount,guideContext().libraryQuery]:null]);
  const words=currentGuideText(),speak=options.guide!==false&&pageKey!==lastAutoPage;lastAutoPage=pageKey;announce(words);
  return speak?say(currentGuide,words):Promise.resolve(false);
 }
@@ -149,9 +152,9 @@ function goHome(isLibrary=false){runId++;stopAll();route=isLibrary?'library':'ho
 function filmCard(item,i,featured){const media=findFilm(item.assetId);if(!media)return '';const pos=item.position>1&&item.position<media.duration-2?item.position:0;const cover=media.covers[i%media.covers.length];return `<article class="film-card ${featured?'featured':''}"><div class="film-cover"><img src="${mediaAsset(cover.file)}" alt="${esc(cover.alt)}" loading="${i?'lazy':'eager'}"><span class="corner-tag">${icon('headphones')}${hasNarration(media)?'中文口述影像':'原片'}</span><span class="duration">${time(media.duration)}</span></div><div class="film-info"><div class="film-meta"><span class="index">${i+1}</span>${item.public?'公开视频':'本机口述版本'} · ${esc(media.kind||'影视片段')}</div><h3>${esc(item.title)}</h3><p>${esc(media.shortDescription||media.description||'')}</p><span class="status-label">${icon('check')}${pos?'已听到 '+time(pos):hasNarration(media)?'已添加口述影像':'原声视频'}</span><button class="btn primary" data-action="watch" data-id="${esc(item.id)}" data-focus-label="${pos?'继续播放':'播放'}《${esc(item.title)}》" aria-label="${pos?'继续播放':'播放'}《${esc(item.title)}》，${durationWords(media.duration)}">${icon('play')}${pos?'继续播放':'播放视频'}</button></div></article>`;}
 function renderHome(query=''){
  if(route==='home'){page(openingPage(icon),'home',true,{guide:false});return;}
- const all=route==='library',source=all?library:library.filter(item=>item.public===true&&!item.sourceProjectId),items=visibleLibrary(source,{query,all});
- page(`<div class="container library-page"><div class="page-heading"><div class="title-line"><h1>${all?'我的视频':'示例视频'}</h1><span class="count">${source.length} 部</span></div><button class="btn primary" data-action="create">${icon('plus')}创建新视频<kbd>空格</kbd></button></div>${all?`<label class="search-box">${icon('search')}<input type="search" id="search" placeholder="搜索视频" aria-label="搜索我的视频" value="${esc(query)}"></label>`:''}${task&&!task.completed?`<div class="draft-strip">${icon('file')}<span>制作中 · ${stageTitle(task)}</span><button class="text-btn" data-action="resume">继续制作 ${icon('arrow')}</button></div>`:''}${revision&&!revision.completed?`<div class="draft-strip">${icon('file')}<span>${esc(revision.title)}</span><button class="text-btn" data-action="resume-revision">继续修改 ${icon('arrow')}</button></div>`:''}<div class="library-tools"><span>${all?'按名称查找':'最近添加'}</span>${!all&&library.length>6?`<button class="text-btn" data-action="library">查看全部 ${icon('arrow')}</button>`:''}</div><div class="library-grid" id="cards">${items.length?items.map((x,i)=>filmCard(x,i,false)).join(''):'<div class="empty-state"><h3>没有找到视频</h3></div>'}</div></div>`,all?'library':'home',false);
- if(all)$('#search').addEventListener('input',e=>{$('#cards').innerHTML=visibleLibrary(library,{query:e.target.value,all:true}).map((x,i)=>filmCard(x,i,false)).join('')||'<div class="empty-state"><h3>没有找到视频</h3></div>';});
+ const all=route==='library',source=library.filter(item=>isListedVideo(item)&&findFilm(item.assetId)&&(all||item.public===true&&!item.sourceProjectId)),items=visibleLibrary(source,{query,all});
+ page(`<div class="container library-page"><div class="page-heading"><div class="title-line"><h1>${all?'我的视频':'示例视频'}</h1><span class="count">${items.length} 部</span></div><button class="btn primary" data-action="create">${icon('plus')}创建新视频<kbd>空格</kbd></button></div>${all?`<label class="search-box">${icon('search')}<input type="search" id="search" placeholder="搜索视频" aria-label="搜索我的视频" value="${esc(query)}"></label>`:''}${task&&!task.completed?`<div class="draft-strip">${icon('file')}<span>制作中 · ${stageTitle(task)}</span><button class="text-btn" data-action="resume">继续制作 ${icon('arrow')}</button></div>`:''}${revision&&!revision.completed?`<div class="draft-strip">${icon('file')}<span>${esc(revision.title)}</span><button class="text-btn" data-action="resume-revision">继续修改 ${icon('arrow')}</button></div>`:''}<div class="library-tools"><span>${all?'按名称查找':'最近添加'}</span>${!all&&library.length>6?`<button class="text-btn" data-action="library">查看全部 ${icon('arrow')}</button>`:''}</div><div class="library-grid" id="cards">${items.length?items.map((x,i)=>filmCard(x,i,false)).join(''):'<div class="empty-state"><h3>没有找到视频</h3></div>'}</div></div>`,all?'library':'home',false);
+ if(all)$('#search').addEventListener('input',e=>{const matches=visibleLibrary(source,{query:e.target.value,all:true});$('#cards').innerHTML=matches.map((x,i)=>filmCard(x,i,false)).join('')||'<div class="empty-state"><h3>没有找到视频</h3></div>';main.querySelector('.count').textContent=matches.length+' 部';announce(currentGuideText());});
 }
 function stageNav(active){const labels=['上传视频','认识角色','首个场景','连续场景','完成整片'];return `<nav class="stage-nav" aria-label="制作阶段">${labels.map((name,i)=>`${i?'<span class="stage-line" aria-hidden="true"></span>':''}<button class="stage-button ${active===i?'active':active>i?'completed':''}" data-action="view-stage" data-stage="${i}" data-focus-label="${name}" ${i>active?'disabled':''} ${i===active?'aria-current="step"':''}><span class="num">${i<active?icon('check'):i+1}</span><span>${name}</span></button>`).join('')}</nav>`;}
 function shell(content,active){return `<div class="container"><div class="back-row"><button class="text-btn" data-action="exit">${icon('back')}返回我的视频</button><span class="task-name">${active===0?'新建口述影像':film.title}<span aria-hidden="true"> · </span>${active===0?'从一段视频开始':time(film.duration)+' · '+(film.kind||'影视片段')}</span></div>${stageNav(active)}${content}</div>`;}

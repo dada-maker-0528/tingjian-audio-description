@@ -2,6 +2,16 @@ const names=['零','一','二','三','四','五','六','七','八','九','十'];
 const number=n=>names[n]||String(n);
 export const stepNames={upload:'第一步，选择视频',analyzing:'第一步，正在整理视频',roles:'第二步，认识人物',short:'第三步，确认第一个场景',medium:'第四步，确认连续场景',full:'第五步，制作完整视频',complete:'第五步，制作完成'};
 const navigation='按 Tab 选择下一个操作，按 Shift 加 Tab 返回上一个操作。';
+function librarySummary({libraryCount=0,libraryTotal=libraryCount,libraryQuery=''}={}){
+ if(libraryQuery.trim())return libraryCount?`找到 ${libraryCount} 部相关视频。`:'没有找到相关视频，可更换搜索词或按空格创建新视频。';
+ return libraryTotal?`我的视频，共 ${libraryCount} 部。`:'还没有视频，按空格创建新视频。';
+}
+function libraryGuide(context){
+ const summary=librarySummary(context),count=Math.min(context.libraryCount||0,9);
+ if(!count)return summary+navigation;
+ const keys=context.shortcuts?`在非输入区域按数字 ${count===1?'1':'1 至 '+count} 播放对应视频。`:'';
+ return summary+'可以搜索片名，或选择视频继续观看。'+keys+'在非输入区域按空格创建新视频。'+navigation;
+}
 export function roleChoices(roles,{shortcuts=true,review=false,completed=true}={}){
  const done=completed?'人物介绍结束。':'',count=Math.min(roles.length,9);
  const replay=shortcuts&&count?`数字 ${count===1?'1':'1 至 '+count} 再听，`:'可选择人物再听，';
@@ -23,13 +33,13 @@ export function roleTourSteps(film,{index,review=false,shortcuts=true}={}){
  steps.push({key:'roles-end',text:roleChoices(roles,{review,shortcuts})});
  return steps;
 }
-export function pageGuide(key,{film={},task,libraryCount=0,filmCount=0,shortcuts=true}={}){
+export function pageGuide(key,{film={},task,libraryCount=0,libraryTotal=libraryCount,libraryQuery='',filmCount=0,shortcuts=true}={}){
  const total=film.scenes?.length||task?.totalScenes||1,count=key==='short'?1:task?.sceneCount||Math.min(3,total);
  const sceneNames=(film.scenes||[]).slice(0,count).map(s=>s.title).join('、');
  const action='按空格播放或暂停。右侧旁白助手保持展开。'+(shortcuts?'在非输入区域按字母 O 开始语音输入，':'选择语音输入开始说话，')+'按回车结束识别并发送文字。也可直接输入意见，回车发送，Shift 加回车换行。先生成修改指令，确认后才执行。';
  switch(key){
-  case 'home':return `欢迎来到智享视界，产品大王队出品。我们为视障用户讲述画面中的人物、动作与细节，让故事不止于看见。进入后可以播放示例，也可以上传视频，用一句话调整旁白。按回车或空格进入我的视频。${navigation}`;
-  case 'library':return `当前是我的全部视频，共 ${libraryCount} 个条目。可以搜索片名，或选择视频继续观看。${navigation}`;
+  case 'home':return `欢迎来到听见，产品大王队出品。我们为视障用户讲述画面中的人物、动作与细节，让故事不止于看见。进入后可以播放示例，也可以上传视频，用一句话调整旁白。按回车或空格进入我的视频。${navigation}`;
+  case 'library':return libraryGuide({libraryCount,libraryTotal,libraryQuery,shortcuts});
   case 'upload':return `当前是${stepNames.upload}。可选择本地视频预览，或选择“使用演示视频”体验完整制作流程。${navigation}`;
   case 'analyzing':return `当前是${stepNames.analyzing}。正在为《${film.title||'这段影片'}》整理人物和 ${total} 个场景。我们会先介绍人物，再按原片顺序从第一个完整场景开始试听。`;
   case 'roles':return roleIntroduction(film.roles||[],{sceneCount:total});
@@ -45,10 +55,10 @@ export function pageGuide(key,{film={},task,libraryCount=0,filmCount=0,shortcuts
   default:return '';
  }
 }
-export function briefPageGuide(key,{film={},task,libraryCount=0}={}){
+export function briefPageGuide(key,{film={},task,libraryCount=0,libraryTotal=libraryCount,libraryQuery=''}={}){
  switch(key){
-  case 'home':return '智享视界，产品大王队出品。按回车或空格进入体验。';
-  case 'library':return `我的视频，共 ${libraryCount} 部。`;
+  case 'home':return '听见，产品大王队出品。按回车或空格进入我的视频。';
+  case 'library':return librarySummary({libraryCount,libraryTotal,libraryQuery});
   case 'upload':return '第一步，选择视频。';
   case 'roles':return roleIntroduction(film.roles||[]);
   case 'roles-end':return roleChoices(film.roles||[]);

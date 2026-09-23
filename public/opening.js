@@ -1,15 +1,28 @@
-import {assetURL} from './asset-url.js';
-
-export function openingPage(icon){
- return `<section class="opening" aria-labelledby="opening-title">
-  <div class="opening-content">
-   <p class="opening-eyebrow">AI 口述影像 · 无障碍观影</p>
-   <h1 id="opening-title"><span class="sr-only">智享视界</span><img class="opening-wordmark" src="${assetURL('assets/zhixiang-title-provided.png')}" width="2172" height="724" alt="" aria-hidden="true" fetchpriority="high"></h1>
-   <p class="opening-tagline">让故事，不止于看见。</p>
-   <p class="opening-description">为视障用户讲述画面中的人物、动作与细节。<br>听懂一段影片，也能用一句话调整旁白。</p>
-   <div class="opening-actions"><button class="opening-enter" data-action="library" data-focus-label="进入智享视界，打开我的视频">进入体验 <span aria-hidden="true">${icon('arrow')}</span></button><button class="opening-listen" data-action="intro-read">${icon('volume')}听项目简介</button></div>
-   <p class="opening-shortcut"><kbd>Enter</kbd> 或空格，进入体验</p>
+import {openingSignal} from './opening-signal.js';
+export function openingPage(){
+ return `<section class="opening silver-home" aria-labelledby="opening-title">
+  <div class="silver-material" aria-hidden="true"></div>
+  ${openingSignal()}
+  <div class="silver-brand" aria-label="听见"><img class="silver-brand-mark" src="assets/tingjian-mark.svg" width="61" height="60" alt=""><img class="silver-brand-word" src="assets/tingjian-wordmark.svg" width="75" height="37" alt="听见"></div>
+  <div class="silver-copy">
+   <p class="silver-eyebrow">AI 口述影像</p>
+   <h1 id="opening-title" aria-label="听见"><span>听</span><span class="silver-title-dot" aria-hidden="true">·</span><span>见</span></h1>
+   <div class="silver-rule" aria-hidden="true"></div>
+   <p class="silver-tagline">听见世界的更多可能</p>
+   <button class="silver-entry opening-enter" type="button" data-action="library" data-focus-label="进入听见，打开我的视频"><span class="silver-play" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="m8 4 13 8-13 8Z"/></svg></span><span>进入听见</span><svg class="silver-arrow" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12h15m-5-5 5 5-5 5"/></svg></button>
   </div>
-  <div class="opening-footer"><span class="opening-credit">产品大王队 <span>出品</span></span><span class="opening-note">从画面到声音，让每个人走进故事。</span></div>
+  <footer class="silver-footer">
+   <p class="silver-signature"><span>AI + 社会公益赛道</span><span lang="en">MORE THAN A MOVIE</span></p>
+  </footer>
  </section>`;
 }
+let currentRoot;
+const main=document.getElementById('main');
+function syncOpening(){
+ const next=main.querySelector('.silver-home');if(next===currentRoot)return;
+ currentRoot=next;
+ document.body.classList.toggle('silver-home-mode',!!next);
+ document.querySelector('meta[name="theme-color"]').content=next?'#08090a':'#ffffff';
+}
+const observer=new MutationObserver(syncOpening);observer.observe(main,{childList:true});syncOpening();
+window.addEventListener('pageshow',event=>{if(event.persisted){currentRoot=null;syncOpening();}});
