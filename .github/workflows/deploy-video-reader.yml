@@ -77,7 +77,7 @@ jobs:
           command: pages deploy video-reader/public --project-name tingjian-video-reader-demo --branch codex/video-reader-deploy
       - name: Verify Pages alternative
         env:
-          READER_PAGES_URL: ${{ steps.pages.outputs.pages-deployment-alias-url || steps.pages.outputs.deployment-url }}
+          READER_PAGES_URL: https://tingjian-video-reader-demo.pages.dev
         run: |
           test -n "$READER_PAGES_URL"
           node video-reader/scripts/verify-deployment.mjs "$READER_PAGES_URL"

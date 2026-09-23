@@ -2,6 +2,13 @@
 
 全屏入口为 `/`，手机版为 `/portrait.html`。两页、视频、封面和豆包 Vivi 合成音频一起发布到独立的 Cloudflare Worker `tingjian-video-reader-demo`。
 
+已发布的 Pages 入口：
+
+- 全屏：https://tingjian-video-reader-demo.pages.dev/
+- 手机：https://tingjian-video-reader-demo.pages.dev/portrait.html
+
+同一工作流同步发布 Workers 与 Pages。大陆访问优先使用上面的 Pages 入口；2026-09-23 本机中国大陆出口直连两页均返回 200，而 `workers.dev` 入口在该网络下连接失败。该结果不代表所有地区、运营商均可达。
+
 ## GitHub 发布
 
 发布分支为 `codex/video-reader-deploy`。推送本目录或 `.github/workflows/deploy-video-reader.yml` 的改动后，独立工作流执行测试、素材校验和部署预检，再发布读屏站点。
